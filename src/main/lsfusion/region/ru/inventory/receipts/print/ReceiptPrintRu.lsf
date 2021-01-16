@@ -1,11 +1,12 @@
 MODULE ReceiptPrintRu;
 
-REQUIRE ReceiptPrint, PurchaseOrderReceipt, LocationEmployee, BillReceipt;
+REQUIRE ReceiptPrint, LocationEmployeeRu;
 
 NAMESPACE Inventory;
 
+order = ABSTRACT ISTRING (Receipt);
+document = ABSTRACT ISTRING (Receipt);
+
 EXTEND FORM printReceipt
-    PROPERTIES performed = namePerformed(location(o)), numberDateOrder(o), numberDateBill(o)  
+    PROPERTIES performed = namePerformed(location(o)), order(o), document(o)  
 ;
-
-

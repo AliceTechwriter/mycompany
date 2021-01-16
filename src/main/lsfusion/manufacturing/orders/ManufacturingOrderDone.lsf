@@ -16,6 +16,14 @@ WHEN SET(done(ManufacturingOrder o)) AND NOT CHANGED(executionDateTime(o)) DO ex
 productsLocation 'Получатель' = DATA Location (ManufacturingOrder);
 nameProductsLocation 'Получатель' (ManufacturingOrder m) = name(productsLocation(m));
 
+@defineDocLocationAccess(manufacturingOrder, o, products);
+
+CONSTRAINT done(ManufacturingOrder o) AND NOT productsLocation(o)
+    MESSAGE 'Не выбрано место хранения получателя в завершенном производственном заказе'; 
+
+prevOnHandAProductsLocation 'Остаток после операции (получатель)' (ManufacturingOrder o) = 
+    prevOnHandA(productsLocation(o), item(o), executionDateTime(o));
+
 markAsDone 'Завершить' (ManufacturingOrder m) {
     APPLY;
     IF canceled() THEN RETURN;
@@ -24,6 +32,7 @@ markAsDone 'Завершить' (ManufacturingOrder m) {
         IF NOT produced(m) THEN
             setManufactured(m, toManufacture(m));
         
+        ready(m) <- TRUE;
         inProgress(m) <- TRUE;
         done(m) <- TRUE;
         APPLY;
@@ -62,14 +71,17 @@ DESIGN manufacturingOrder {
 }
 
 EXTEND FORM manufacturingOrders
-    PROPERTIES(o) READONLY executionDateTime AFTER scheduledDateTime(o) 
+    PROPERTIES(o) READONLYIF isReadonly()
+                           executionDateTime AFTER scheduledDateTime(o),
+                           nameProductsLocation AFTER manufactured(o)
+    PROPERTIES(o) READONLY prevOnHandAProductsLocation READONLY AFTER nameProductsLocation(o)  
+
+    EXTEND FILTERGROUP status
+        FILTER 'Завершен' status(o) = ManufacturingOrderStatus.done    
 ;
 
 extraCopy (ManufacturingOrder o, ManufacturingOrder m) + {
     productsLocation(o) <- productsLocation(m);
 }
 
-// constraint
-CONSTRAINT done(ManufacturingOrder o) AND NOT productsLocation(o)
-    MESSAGE 'Не выбрано место хранения в завершенном производственном заказе'; 
-
+@defineSelectionAction(manufacturingOrders, ManufacturingOrder, markAsDone, 'Завершить', statuses);

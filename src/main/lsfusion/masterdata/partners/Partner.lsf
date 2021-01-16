@@ -1,12 +1,12 @@
 MODULE Partner;
 
-REQUIRE MasterDataSettings, Utils, MetaNumerator;
+REQUIRE Utils, MetaNumerator, Input;
 
 NAMESPACE MasterData;
 
 CLASS ABSTRACT Partner 'Контрагент';
 
-@defineID(partner, 'Контрагенты', 'КН');
+@defineID(partner, 'Контрагенты', 'КН', 4);
 
 name 'Наименование' = ABSTRACT ISTRING[92] (Partner) IN id CHARWIDTH 15 NONULL;
 
@@ -79,6 +79,7 @@ DESIGN partner {
             fill = 1;
             NEW legalInfo {
                 caption = 'Юридические данные';
+                NEW legalInfoOptions;
             }
         }
     }
@@ -86,12 +87,14 @@ DESIGN partner {
 
 FORM partners 'Контрагенты'
     OBJECTS p = Partner
-    PROPERTIES(p) READONLY name, id, nameType, csvAddress, phone, email 
+    PROPERTIES(p) READONLYIF isReadonly() name, id, nameType, csvAddress, phone, email 
     PROPERTIES(p) NEWSESSION EDIT, DELETE 
     FILTERGROUP active
         FILTER 'Активный' active(p) 'F10' DEFAULT
         FILTER 'Неактивный' archived(p) 'F9'
 ;
+
+@extendFormEditable(partners);
 
 DESIGN partners {
     OBJECTS {
@@ -108,10 +111,18 @@ DESIGN partners {
 
 FORM dialogPartners 'Выбор контрагента'
     OBJECTS p = Partner
-    PROPERTIES(p) READONLY name, id, nameType 
+    PROPERTIES(p) READONLY name, id, nameType
+    PROPERTIES(p) NEWSESSION EDIT
+    ORDERS name(p)
+     
     FILTERGROUP active
         FILTER 'Активный' active(p) 'F10' DEFAULT
         FILTER 'Неактивный' archived(p) 'F9'
+
+    PROPERTIES() nameFilter, clearNameFilter
+    FILTERS isISubstring(name(p), nameFilter()) OR NOT nameFilter()
+    
+    EVENTS ON INIT { nameFilter() <- NULL; }
     
     LIST Partner OBJECT p
 ;

@@ -2,8 +2,12 @@ MODULE MyCompanyRu;
 
 REQUIRE MyCompany,
         LegalEntityRu,
+        LegalEntityImportRu,
         InventoryRu,
         InvoicingRu, 
         PurchaseRu,
         SalesRu,
-        CashRegisterAtol;
+        CashRegisterAtol,
+        SUZ,
+        GISMTDocumentDone, GISMTManufacturingOrderIntroduceGoods, GISMTReceiptAcceptGoods, 
+        GISMTShipmentShipGoods, GISMTShipmentShipReceipt, GISMTScrapReceipt;

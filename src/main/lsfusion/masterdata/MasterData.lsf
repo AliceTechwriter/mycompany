@@ -1,11 +1,21 @@
 MODULE MasterDataP;
 
-REQUIRE MetaNumerator,
-        Individual, LegalEntity, Company,
-        Category, ServiceP, Product, BarCode,
-        ItemImage, ItemAttribute, ItemVariant, Uom,
-        CategoryImport, UomImport, ProductImport, BarCodeImport,
-        ServiceImport, IndividualImport, LegalEntityImport, ItemAttributeImport,
+REQUIRE MetaNumerator, PartnerGeo, 
+        Individual, IndividualImport, Employee,
+        LegalEntity, LegalEntityImport,
+        Contract, ContractPartner, ContractImport,  
+        Company, CompanyInitial,
+        Category, CategoryImport, CategoryImage, 
+        ServiceP, ServiceImport, 
+        Product, ProductImport,
+        ItemVariant, ItemHistory,
+        ItemAttribute, ItemAttributeImport, 
+        ItemCostImport,
+        ItemImage, ItemImageMobile, ItemImageImport,
+        ItemPrint, ItemPrintInitial, 
+        Uom, UomImport, 
+        ItemUom, ItemUomImport, 
+        BarCode, BarCodeHistory, BarCodeImport,
         CountryP, CountryImport;
 
 NAMESPACE MasterData;

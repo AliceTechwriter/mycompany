@@ -1,14 +1,14 @@
 MODULE Shipment;
 
-REQUIRE System, Time,
-        InventorySettings, Location, Partner, Product,
+REQUIRE System, Time, DateUtils,
+        InventorySettings, LocationEmployee, Partner, Product,
         ShipmentType, ItemSales, PartnerSales, BarCode, Doc, ResLedger;
 
 NAMESPACE Inventory;
 
 CLASS Shipment 'Отгрузка';
 
-@defineStatus(shipment, 'отгрузки');
+@defineDocStatus(shipment, 'отгрузки');
 
 immediate 'Незапланированная' = DATA BOOLEAN (Shipment);
 
@@ -20,15 +20,18 @@ WHEN LOCAL SET(Shipment s IS Shipment) AND NOT CHANGED(type(s)) DO type(s) <- de
 
 scheduledDateTime 'Планируемая дата' = DATA DATETIME (Shipment) NONULL IN id;
 scheduledDateTime(Shipment s) <- currentDateTime() WHEN SET(s IS Shipment);
+@defineDateTimeAggregation(Shipment, scheduled, ' планируемая');
 
 @defineNumberType(shipment);
 
-numberDate 'Описание' (Shipment s) = number(s) + ' от ' + scheduledDateTime(s);
+numberDate 'Описание' (Shipment s) = number(s) + ' от ' + scheduledDateTime(s) IN id;
 
 // locations
 location 'Место хранения (откуда)' = DATA Location (Shipment) NONULL INDEXED;
 nameLocation 'Место хранения (откуда)' (Shipment s) = name(location(s));
 WHEN LOCAL SETCHANGED(type(Shipment s)) AND defaultLocation(type(s)) AND NOT CHANGED(location(s)) DO location(s) <- defaultLocation(type(s));  
+
+company 'Компания' (Shipment s) = company(location(s));
 
 toLocation 'Место хранения (куда)' = DATA Location (Shipment);
 nameToLocation 'Место хранения (куда)' (Shipment s) = name(toLocation(s));
@@ -40,7 +43,7 @@ CONSTRAINT location(Shipment s) = toLocation(s)
 
 // transfer
 WHEN SETCHANGED(type(Shipment s)) AND NOT isTransfer(type(s)) DO toLocation(s) <- NULL;
-CONSTRAINT isTransfer(type(Shipment s)) AND NOT toLocation(s) MESSAGE 'Не задано место хранение (куда) для трансфера';
+CONSTRAINT isTransfer(type(Shipment s)) AND NOT toLocation(s) MESSAGE 'Не задано место хранение (куда) для перемещения';
 
 // customer
 customer = DATA Partner (Shipment) INDEXED;
@@ -69,22 +72,22 @@ CONSTRAINT product(ShipmentLine l) AND NOT canBeSold(product(l))
             CHECKED BY product[ShipmentLine] 
             MESSAGE 'Товар не предназначен для продажи';
 
-uom = DATA Uom (ShipmentLine);
+uom (ShipmentLine l) = uom(product(l));
 nameUom 'Ед. изм.' (ShipmentLine l) = name(uom(l));
-WHEN LOCAL CHANGED(product(ShipmentLine l)) DO uom(l) <- uom(product(l)); 
 
-initialDemand 'Планируемое количество' = DATA NUMERIC[16,3] (ShipmentLine);
+initialDemand 'Планируемое кол-во' = DATA NUMERIC[16,3] (ShipmentLine);
 
 CONSTRAINT initialDemand(ShipmentLine l) < 0 OR initialDemand(l) > maxQuantity(type(shipment(l))) AND maxQuantity(type(shipment(l))) 
     MESSAGE 'Исходное количество должно быть от 0 до максимально разрешенного';
 
 // line properties
 nameStatus 'Статус' (ShipmentLine l) = nameStatus(shipment(l));
-scheduledDateTime 'Планируемая дата' (ShipmentLine l) = scheduledDateTime(shipment(l));
-number 'Номер' (ShipmentLine l) = number(shipment(l));
+scheduledDateTime 'Планируемая дата' (ShipmentLine l) = scheduledDateTime(shipment(l)) IN id;
+number 'Номер' (ShipmentLine l) = number(shipment(l)) IN id;
 numberDate 'Описание' (ShipmentLine l) = numberDate(shipment(l));
 customer (ShipmentLine l) = customer(shipment(l));
 nameCustomer 'Покупатель' (ShipmentLine l) = nameCustomer(shipment(l));
+location (ShipmentLine l) = location(shipment(l));
 nameLocation 'Место хранения' (ShipmentLine l) = nameLocation(shipment(l));
 
 FORM shipmentLines 'Строки отгрузки'
@@ -104,7 +107,7 @@ FORM shipment 'Отгрузка'
                   
     OBJECTS l = ShipmentLine
     PROPERTIES(l) index READONLY, nameProduct, nameUom, idBarCodeProduct, idProduct, 
-                  initialDemand SHOWIF NOT immediate(s) BACKGROUND IF isDraft(shipment(l)) THEN RGB(198,230,247) 
+                  initialDemand SHOWIF NOT immediate(s) BACKGROUND IF status(shipment(l)) = ShipmentStatus.draft THEN RGB(198,230,247) 
     PROPERTIES(l) NEW, DELETE
     FILTERS shipment(l) = s
              
@@ -112,6 +115,7 @@ FORM shipment 'Отгрузка'
 ;
 
 DESIGN shipment {
+    caption = (CONCAT ' ', 'Отгрузка', '№' + number(s), 'от ' + scheduledDateTime(s));
     OBJECTS {       
         NEW header {
             NEW headerCenter {
@@ -142,6 +146,10 @@ DESIGN shipment {
                     PROPERTY(nameProduct(l)) { notNull = TRUE; }
                     PROPERTY(initialDemand(l)) { notNull = TRUE; }
                 }
+                NEW linesTab {
+                    fill = 0.3;
+                    type = TABBED;
+                }                
             }                  
         }
     }
@@ -155,15 +163,22 @@ DESIGN shipment {
 @defineDocHistory(shipment, s, product, initialDemand);
 
 // shipments
+background = ABSTRACT CASE COLOR (Shipment);
+
 FORM shipments 'Отгрузки'
-    OBJECTS s = Shipment
-    PROPERTIES(s) READONLY nameType, scheduledDateTime, number, 
+    OBJECTS s = Shipment BACKGROUND background(s)
+    PROPERTIES(s) READONLYIF isReadonly()
+                           nameType, scheduledDateTime, number, 
                            nameCustomer, nameLocation, nameToLocation,
-                           note
+                           note, countLines
     PROPERTIES(s) NEWSESSION NEW, EDIT, DELETE
 ;
 
-@defineStatusForm(shipment, s);
+@extendFormEditable(shipments);
+
+@defineDocObjectsForm(shipments, s, 'Отгрузки');
+@defineDocStatusForm(shipment, s);
+@defineDocLocationAccess(shipment, s);
 
 NAVIGATOR {
     operations {
@@ -186,20 +201,24 @@ EXTEND FORM shipments
 ;
 
 // copy
-copy 'Копировать' (Shipment s)  { 
+clone(Shipment to, Shipment from) {
+    type(to) <- type(from);
+    location(to) <- location(from);
+    toLocation(to) <- toLocation(from);
+    note(to) <- note(from);
+    immediate(to) <- immediate(from);
+    FOR shipment(ShipmentLine l) = from INLINE NEW nl = ShipmentLine DO {
+        shipment(nl) <- to;
+        product(nl) <- product(l);
+        initialDemand(nl) <- initialDemand(l);
+    }
+}
+
+copy 'Копировать' (Shipment from)  { 
     NEWSESSION {
-        NEW ns = Shipment {
-            type(ns) <- type(s);
-            location(ns) <- location(s);
-            toLocation(ns) <- toLocation(s);
-            note(ns) <- note(s);
-            immediate(ns) <- immediate(s);
-            FOR shipment(ShipmentLine l) = s INLINE NEW nl = ShipmentLine DO {
-                shipment(nl) <- ns;
-                product(nl) <- product(l);
-                initialDemand(nl) <- initialDemand(l);
-            }
-            SHOW shipment OBJECTS s = ns DOCKED;
+        NEW to = Shipment {
+            clone(to, from);
+            SHOW shipment OBJECTS s = to DOCKED;
         }
     }
 }

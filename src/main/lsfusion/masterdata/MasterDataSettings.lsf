@@ -1,39 +1,12 @@
 MODULE MasterDataSettings;
 
-REQUIRE Numerator;
+REQUIRE MasterData;
 
 NAMESPACE MasterData;
 
-loadInitialData ABSTRACT LIST ();
-
-createInitialData 'Загрузить начальные настройки' {
-    NEWSESSION {
-        loadInitialData();
-        APPLY;
-    }
-}
-
-FORM options 'Настройки'
-    PROPERTIES createInitialData()
-;
-
-DESIGN options {
-    OBJECTS {
-        type = TABBED;
-        NEW general {
-            caption = 'Общие';
-        } 
-        NEW import {
-            type = COLUMNS;
-            columns = 2;
-            caption = 'Загрузка данных';
-            MOVE PROPERTY(createInitialData());
-        } 
-    }
-}
-
 NAVIGATOR {
     masterData {
-        NEW options;        
+        NEW FOLDER dashboards 'Процессы' {  
+        }
     }
 }

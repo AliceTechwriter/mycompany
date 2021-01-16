@@ -1,7 +1,7 @@
 MODULE PosDashboard;
 
-REQUIRE Pos, Session,
-        InvoiceReady, SessionInvoice, SalesInvoiceDiscount;
+REQUIRE Pos, Session, Input,
+        InvoiceReady, SessionInvoice, SalesDiscountInvoice;
 
 NAMESPACE Retail;
 
@@ -17,7 +17,7 @@ FORM posDashboard 'POS'
     FILTERS s = openedSession(p)
     
     OBJECTS i = Invoice PANEL
-    PROPERTIES(i) 'Итого' = fullAmount, 'Скидка' = discountAmount, 'К оплате' = totalAmount, 
+    PROPERTIES(i) 'Итого' = fullAmount, 'Скидка' = discountAmount, 'К оплате' = amount, 
                   nameCustomer
     FILTERS session(i) = s
     
@@ -29,13 +29,15 @@ FORM posDashboard 'POS'
     FILTERS invoice(l) = i
 
     // session results
-    PROPERTIES openSession(p) SHOWIF NOT s, close(s) READONLYIF totalAmount(i)
-    PROPERTIES(s) READONLY openingDateTime, totalAmount
+    PROPERTIES openSession(p) SHOWIF NOT s, close(s)
+    PROPERTIES(s) READONLY openingDateTime, amount
     
     OBJECTS si = Invoice
-    PROPERTIES(si) READONLY dateTime, number, nameCustomer, 'Итого' = fullAmount, 'Скидка' = discountAmount, 'К оплате' = totalAmount
+    PROPERTIES(si) READONLY dateTime, number, nameCustomer, 'Итого' = fullAmount, 'Скидка' = discountAmount, 'К оплате' = amount
     PROPERTIES(si) NEWSESSION EDIT
-    FILTERS PREV(session(si)) = s
+    FILTERGROUP invoices
+        FILTER 'По смене' PREV(session(si)) = s DEFAULT
+        FILTER 'По кассе' PREV(pos(session(si))) = p
 ;
 
 DESIGN posDashboard {
@@ -44,45 +46,55 @@ DESIGN posDashboard {
             fill = 1;
             type = SPLITH;
             NEW leftPane {
+                width = 1;
                 NEW invoicePane {
                     fill = 1;
                     showIf = openedSession(p) AND NOT hideInvoice();
+                    NEW invoiceHeader {
+                        alignment = STRETCH;
+                        type = CONTAINERH;
+                    }
                     NEW invoice {
                         alignment = STRETCH;
                         type = CONTAINERH;
                         MOVE PROPERTY(nameCustomer(i)) { changeKey = 'F5'; }
                     }
                     REMOVE BOX(l);
+                    REMOVE TOOLBARBOX(l);
                     MOVE GRID(l) {
-                        PROPERTY(nameItem(l)) { charWidth = 10; }
+                        PROPERTY(index(l)) { charWidth = 1; }
+                        PROPERTY(nameItem(l)) { charWidth = 30; }
+                        PROPERTY(quantity(l)) { charWidth = 5; }
+                        PROPERTY(price(l)) { charWidth = 6; }
+                        PROPERTY(nameSalesDiscount(l)) { charWidth = 8; }
+                        PROPERTY(discountPrice(l)) { charWidth = 6; }
                     }
                     NEW linesFooter {
                         type = CONTAINERH;
                         alignment = STRETCH;
                         NEW info {
                             fill = 1;
-                            MOVE TOOLBARBOX(l);
                             NEW itemDetails {
                                 alignment = STRETCH;
                                 NEW itemDetails1 {
                                     alignment = STRETCH;
                                     type = CONTAINERH;
-                                    MOVE PROPERTY(nameItemPanel) { panelCaptionAbove = TRUE; focusable = FALSE; }
-                                    MOVE PROPERTY(nameUom(l)) { panelCaptionAbove = TRUE; focusable = FALSE; }
+                                    MOVE PROPERTY(nameItemPanel) { panelCaptionVertical = TRUE; focusable = FALSE; }
+                                    MOVE PROPERTY(nameUom(l)) { panelCaptionVertical = TRUE; focusable = FALSE; }
                                 }
                                 NEW itemDetails2 {
                                     alignment = STRETCH;
                                     type = CONTAINERH;
-                                    MOVE PROPERTY(idBarCodeItem(l)) { panelCaptionAbove = TRUE; focusable = FALSE; }
-                                    MOVE PROPERTY(idItem(l)) { panelCaptionAbove = TRUE; focusable = FALSE; }
+                                    MOVE PROPERTY(idBarCodeItem(l)) { panelCaptionVertical = TRUE; focusable = FALSE; }
+                                    MOVE PROPERTY(idItem(l)) { panelCaptionVertical = TRUE; focusable = FALSE; }
                                 }
                             }
                             NEW total {
                                 type = CONTAINERH;
                                 alignment = STRETCH;
-                                MOVE PROPERTY(fullAmount(i)) { charWidth = 8; panelCaptionAbove = TRUE; fontSize = 24; focusable = FALSE; }
-                                MOVE PROPERTY(discountAmount(i)) { charWidth = 8; panelCaptionAbove = TRUE; fontSize = 24; focusable = FALSE; }
-                                MOVE PROPERTY(totalAmount(i)) { charWidth = 8; panelCaptionAbove = TRUE; fontSize = 24; focusable = FALSE; }
+                                MOVE PROPERTY(fullAmount(i)) { charWidth = 8; panelCaptionVertical = TRUE; fontSize = 24; focusable = FALSE; }
+                                MOVE PROPERTY(discountAmount(i)) { charWidth = 8; panelCaptionVertical = TRUE; fontSize = 24; focusable = FALSE; }
+                                MOVE PROPERTY(amount(i)) { charWidth = 8; panelCaptionVertical = TRUE; fontSize = 24; focusable = FALSE; }
                             }
                         }
                         NEW actions {
@@ -92,7 +104,8 @@ DESIGN posDashboard {
                 }
             }
             NEW tabPane {
-                fill = 2;
+                width = 1;
+                fill = 1;
                 type = TABBED;
                 
                 NEW session {
@@ -110,17 +123,23 @@ DESIGN posDashboard {
                         MOVE PROPERTY(openingDateTime(s)) { caption = 'Смена открыта'; focusable = FALSE; }
                         MOVE PROPERTY(close(s)) { fontStyle = 'bold'; caption = 'Закрыть смену'; }
                     }
-                    
+                    NEW cashRegister {
+                        type = CONTAINERH;
+                        alignment = STRETCH;
+                    }
                     NEW sessionTotal {
                         type = CONTAINERH;
                         alignment = STRETCH;
-                        MOVE PROPERTY(totalAmount(s));
+                        MOVE PROPERTY(amount(s));
                     }
                     
                     NEW sessionDetails {
                         fill = 1;
                         type = TABBED;
-                        MOVE BOX(si) { showIf = openedSession(p); }
+                        MOVE BOX(si) { 
+                            showIf = openedSession(p); 
+                            MOVE TOOLBAR(si) { alignment = END; }
+                        }
                     }
                 }
             }
@@ -130,12 +149,33 @@ DESIGN posDashboard {
     REMOVE TOOLBARBOX;
 }
 
+setQuantity(InvoiceLine l, INTEGER n) {
+    IF n = 0 THEN
+        DELETE l;
+    ELSE
+        quantity(l) <- n;
+}
+
+DESIGN posDashboard {
+    info {
+        NEW invoiceKeyboard FIRST {
+            type = CONTAINERH;
+            alignment = STRETCH;
+        }
+    }
+}
+
+@defineKeyboard(posDashboard, InvoiceLine, l, invoiceKeyboard, 14, setQuantity);
+
+DESIGN posDashboard { REMOVE PROPERTY(posDashboardPress0(l)); }
+
+afterCreateInvoice ABSTRACT LIST (Invoice);
 createInvoice (Session s) {
     IF s THEN
         NEW i = Invoice {
-            ready(i) <- TRUE;
             session(i) <- s;
             SEEK posDashboard.i = i;
+            afterCreateInvoice(i);
         }
 }
 
@@ -166,26 +206,25 @@ DESIGN posDashboard {
 }
 
 // barcode handling
-consumedBarcode = DATA BOOLEAN ();
-processBarcode ABSTRACT LIST (Invoice, STRING[20]);
-changeBarcode (Invoice i) {
-    INPUT b = STRING[20] DO {
+processBarCode ABSTRACT LIST (Invoice, InvoiceLine, STRING);
+changeBarCode (Invoice i, InvoiceLine l) {
+    INPUT b = STRING DO {
         IF b THEN {
-            consumedBarcode() <- NULL;
-            processBarcode(i, b);
+            consumedBarCode() <- NULL;
+            processBarCode(i, l, b);
             
-            IF NOT consumedBarcode() THEN
+            IF NOT consumedBarCode() THEN
                 MESSAGE 'Штрих-код не найден';
         } 
     }
 }
 
 EXTEND FORM posDashboard
-    PROPERTIES() barCode ON CHANGE changeBarcode(i)
+    PROPERTIES() barCode ON CHANGE changeBarCode(i, l)
 ;
 
 DESIGN posDashboard {
-    invoicePane {
+    invoiceHeader {
         MOVE PROPERTY(barCode()) FIRST;
     }
 }

@@ -6,17 +6,35 @@ NAMESPACE Inventory;
 
 EXTEND FORM item
     OBJECTS inv = InvLedger
-    PROPERTIES(inv) READONLY SHOWIF i IS Product type, dateTime, nameProduct, quantity, nameFromLocation, nameToLocation
+    PROPERTIES(inv) READONLY SHOWIF i IS Product class, type, dateTime, nameProduct, quantity, 
+                                                 nameFromLocation, onHandAFromLocation, 
+                                                 nameToLocation, onHandAToLocation
+    PROPERTIES(inv) NEWSESSION EDIT
     FILTERGROUP active
         FILTER 'Активный' active(inv) DEFAULT
     FILTERS product(inv) = i
+    
+    OBJECTS l = Location
+    PROPERTIES(l) READONLY canonicalName
+    PROPERTIES(l, i) READONLY onHand, dateReceived, dateShipped
+    FILTERS onHand(l, i)
 ;
 
 DESIGN item {
     operations {
         NEW invledger {
+            showIf = i IS Product;
             caption = 'Движения';
+            type = SPLITH;
+            fill = 1;
             MOVE BOX(inv);
+        }
+        inventory {
+            NEW lines {
+                fill = 1;
+                type = SPLITH;
+                MOVE BOX(l);
+            }
         }
     }
 }

@@ -1,41 +1,50 @@
 MODULE InventoryReport;
 
-REQUIRE InvLedger, ResLedger, ItemImage, ItemAttribute;
+REQUIRE InvLedger, ResLedger, ItemImage, ItemAttribute, LocationEmployee, BarCode;
 
 NAMESPACE Inventory;
 
 selectedDateTime 'Выбрать дату' = DATA LOCAL DATETIME () PREREAD;
 singleLocation 'По одному складу' = DATA LOCAL BOOLEAN () PREREAD;
-onHandDateTime 'Остаток на дату' (Location l, Product p) = onHand(l, p, selectedDateTime());
+onHandDateTime 'Остаток на дату' (Location l, Product p) = onHandA(l, p, selectedDateTime());
                                 
 FORM inventoryReport 'Текущие остатки'
     PROPERTIES selectedDateTime(), singleLocation()
     
     TREE locations lt = Location PARENT parent(lt)
     PROPERTIES READONLY name(lt)
-    ORDER name(lt)
+    ORDERS name(lt)
     
     TREE categories c = Category PARENT parent(c)
     PROPERTIES READONLY name(c)
-    ORDER name(c)
+    ORDERS name(c)
     
     OBJECTS lp = (l = Location, p = Product)
-    PROPERTIES READONLY 'Склад' = canonicalName(l) SHOWIF NOT singleLocation(), 'Товар' = name(p)
+    PROPERTIES READONLY 'Склад' = canonicalName(l) SHOWIF NOT singleLocation() 
+    PROPERTIES(p) READONLY 'Товар' = name, nameUom, idBarCode, id, reference
     PROPERTIES(l, p) READONLY reserved, available
     PROPERTIES(l, p) READONLY SHOWIF NOT selectedDateTime() onHand, onHandRec
     PROPERTIES(l, p) READONLY SHOWIF selectedDateTime() onHandDateTime 
     PROPERTIES(l, p) READONLY dateReceived, dateShipped
     PROPERTIES(p) READONLY image PANEL
+    PROPERTIES(p) NEWSESSION EDIT
+    ORDERS canonicalName(l), name(p) 
     FILTERS IF singleLocation() THEN l = lt ELSE isChild(l, lt),
             level(category(p), c),
+            accessGranted(l)
+
+    FILTERGROUP rowFilter
+        FILTER 'С остатком'
             IF selectedDateTime() THEN onHandDateTime(l, p) ELSE 
-                (IF singleLocation() THEN onHandRec(l, p) ELSE onHand(l, p))
+                (IF singleLocation() THEN onHandRec(l, p) ELSE onHand(l, p)) DEFAULT
+        FILTER 'С приходом' dateReceived(l, p)
                 
     OBJECTS il = InvLedger
-    PROPERTIES(il) READONLY type, dateTime, number, 
-                            namePartner, nameFromLocation, nameToLocation, 
+    PROPERTIES(il) READONLY class, type, dateTime, number, namePartner,
+                            nameFromLocation, onHandAFromLocation, 
+                            nameToLocation, onHandAToLocation,
                             quantity
-    PROPERTIES(il) EDIT
+    PROPERTIES(il) NEWSESSION EDIT
     FILTERGROUP activeInv
         FILTER 'Активный' active(il) DEFAULT
     FILTERS product(il) = p,
@@ -44,21 +53,23 @@ FORM inventoryReport 'Текущие остатки'
             dateTime(il) <= selectedDateTime() OR NOT selectedDateTime()
 
     OBJECTS rl = ResLedger
-    PROPERTIES(rl) READONLY type, dateTime, number, 
+    PROPERTIES(rl) READONLY class, type, dateTime, number, 
                             namePartner, nameLocation, 
                             reserved
-    PROPERTIES(rl) EDIT
+    PROPERTIES(rl) NEWSESSION EDIT
     FILTERS product(rl) = p,
             IF singleLocation() THEN (TRUE IF level(location(rl), l))
                                 ELSE location(rl) = l,
             dateTime(il) <= selectedDateTime() OR NOT selectedDateTime()
             
     OBJECTS a = ItemAttribute
-    OBJECTS rlp = (ll = Location, rp = Product)
+    OBJECTS rlp = (ll = Location, rp = Product) PIVOT
     PROPERTIES READONLY 'Склад' = canonicalName(ll), 'Товар' = name(rp), value(rp, a) COLUMNS (a) HEADER name(a),
-                    level1(rp), level2(rp), level3(rp), level4(rp), 'Группа полная' = canonicalNameCategory(rp)
-    PROPERTIES(ll, rp) READONLY reserved, available, onHandDateTime, dateReceived, dateShipped
-    FILTERS IF selectedDateTime() THEN onHandDateTime(ll, rp) ELSE onHand(ll, rp)
+                        level1(rp), level2(rp), level3(rp), level4(rp), 'Группа полная' = canonicalNameCategory(rp)
+    PROPERTIES(ll, rp) READONLY dateReceived, dateShipped
+    PROPERTIES READONLY MEASURE reserved(ll, rp), available(ll, rp), onHand 'Остаток' = IF selectedDateTime() THEN onHandDateTime(ll, rp) ELSE onHand(ll, rp)
+    FILTERS IF selectedDateTime() THEN onHandDateTime(ll, rp) ELSE onHand(ll, rp),
+            accessGranted(ll)
 ;
 
 DESIGN inventoryReport {
@@ -75,14 +86,14 @@ DESIGN inventoryReport {
                 caption = 'Текущие остатки';
                 type = SPLITH;
                 fill = 1;
-                NEW pane1 {
+                NEW filterTabs {
                     fill = 1;
-                    type = SPLITV;
+                    type = TABBED;
                     MOVE BOX(TREE locations) { caption = 'Места хранения'; }
                     MOVE BOX(TREE categories) { caption = 'Категории'; }
                 }
                 NEW pane2 {
-                    fill = 2;
+                    fill = 3;
                     type = SPLITV;
                     MOVE BOX(lp);
                     NEW tabs {
@@ -98,6 +109,15 @@ DESIGN inventoryReport {
             }
             MOVE BOX (rlp) { caption = 'Отчет'; }
         }
+    }
+}
+
+@defineBarCodeSeek(inventoryReport, p, lp);
+
+@defineItemAttributeForm(inventoryReport, p, lp);
+DESIGN inventoryReport {
+    filterTabs {
+        MOVE BOX(ia) { caption = 'Атрибуты'; }
     }
 }
 

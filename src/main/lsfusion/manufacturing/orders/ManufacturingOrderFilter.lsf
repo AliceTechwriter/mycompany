@@ -1,0 +1,16 @@
+MODULE ManufacturingOrderFilter;
+
+REQUIRE ManufacturingOrderDone;
+
+NAMESPACE Manufacturing;
+
+@defineDateFilterForm(manufacturingOrders, o, scheduled);
+
+// right pane
+@defineDocFilter(manufacturingOrder, ManufacturingOrderType, type, o, 'Тип');
+
+@defineDocFilter(manufacturingOrder, Location, materialsLocation, o, 'Списать из');
+CONSTRAINT accessDenied(manufacturingOrderMaterialsLocation()) CHECKED BY manufacturingOrderMaterialsLocation[] MESSAGE '';
+
+@defineDocFilter(manufacturingOrder, Location, productsLocation, o, 'Получатель');
+CONSTRAINT accessDenied(manufacturingOrderProductsLocation()) CHECKED BY manufacturingOrderProductsLocation[] MESSAGE '';

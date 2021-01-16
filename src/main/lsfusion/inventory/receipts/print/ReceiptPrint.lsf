@@ -9,16 +9,17 @@ phoneVendor (Receipt r) = phone(vendor(r));
 
 addressLocation (Receipt r)  = linesAddress(location(r));
 
-FORM printReceipt 'Задание на поступление'
+FORM printReceipt 'Задание на приемку'
     OBJECTS o = Receipt PANEL 
     PROPERTIES(o) scheduledDateTime, number,
                   nameVendor, addressVendor, phoneVendor,
                   nameLocation, addressLocation 
     
-    OBJECTS l = ReceiptLine
+    OBJECTS l = ReceiptLine 
     PROPERTIES(l) index, nameProduct, idBarCodeProduct, initialDemand, done
+    PROPERTIES done = INTEGER(done(l))
     FILTERS receipt(l) = o
 ;
 
-@defineDocTemplate(receipt, 'поступления');
-@defineDocTemplateForm(receipt, r);
+@defineDocTemplateType(receipt, 'приемки');
+@defineDocTemplateTypeForm(receipt, r);

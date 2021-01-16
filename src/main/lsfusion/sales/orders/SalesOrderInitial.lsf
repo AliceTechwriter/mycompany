@@ -4,14 +4,14 @@ REQUIRE SalesOrderType;
 
 NAMESPACE Sales;
 
-loadInitialData () + {
+loadDefaultData () + {
     NEW t = OrderType {
         name(t) <- 'Оптовая продажа';
         id(t) <- 'wholesale';
 
         NEW n = Numerator {
             name(n) <- 'Оптовая продажа';
-            series(n) <- 'ОП';
+            series(n) <- 'ЗКО';
             minValue(n) <- 1;
             maxValue(n) <- 999999;
             stringLength(n) <- 6;
@@ -25,7 +25,7 @@ loadInitialData () + {
 
         NEW n = Numerator {
             name(n) <- 'Розничная продажа';
-            series(n) <- 'РП';
+            series(n) <- 'ЗКР';
             minValue(n) <- 1;
             maxValue(n) <- 999999;
             stringLength(n) <- 6;

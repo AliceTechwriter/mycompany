@@ -4,7 +4,7 @@ REQUIRE Numerator, Location;
 
 NAMESPACE Inventory;
 
-CLASS ReceiptType 'Тип поступления';
+CLASS ReceiptType 'Тип приемки';
 name 'Название' = DATA ISTRING[50] (ReceiptType) NONULL;
 
 id 'Код' = DATA STRING[20] (ReceiptType);
@@ -18,14 +18,23 @@ nameDefaultLocation 'Место хранения по умолчанию' (Recei
 
 maxQuantity 'Максимальное кол-во товара' = DATA NUMERIC[16,3] (ReceiptType);
 
-FORM receiptType 'Тип поступления'
+FORM receiptType 'Тип приемки'
     OBJECTS o = ReceiptType PANEL 
     PROPERTIES(o) name, id, nameNumerator, nameDefaultLocation, maxQuantity
      
     EDIT ReceiptType OBJECT o;
 ;
 
-FORM receiptTypes 'Типы поступлений'
+DESIGN receiptType {
+    OBJECTS {
+        NEW tabbedPane {
+            fill = 1;
+            type = TABBED;
+        }
+    }
+}
+
+FORM receiptTypes 'Типы приемки'
     OBJECTS o = ReceiptType
     PROPERTIES(o) READONLY name, id
     LIST ReceiptType OBJECT o;

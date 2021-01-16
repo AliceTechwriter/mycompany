@@ -1,10 +1,10 @@
 MODULE BillType;
 
-REQUIRE Numerator, InvoicingSettings, MasterDataSettings;
+REQUIRE Numerator, InvoicingSettings;
 
 NAMESPACE Invoicing;
 
-CLASS BillType 'Тип приобретения';
+CLASS BillType 'Тип поступления';
 name 'Название' = DATA ISTRING[50] (BillType) NONULL;
 
 id 'Код' = DATA STRING[20] (BillType);
@@ -15,14 +15,23 @@ nameNumerator 'Нумератор' (BillType o) = name(numerator(o));
 
 taxIncluded 'Цена включает налоги' = DATA BOOLEAN (BillType);
 
-FORM billType 'Тип приобретения'
+FORM billType 'Тип поступления'
     OBJECTS o = BillType PANEL 
     PROPERTIES(o) name, id, nameNumerator, taxIncluded
      
     EDIT BillType OBJECT o;
 ;
 
-FORM billTypes 'Типы приобретения'
+DESIGN billType {
+    OBJECTS {
+        NEW tabbedPane {
+            fill = 1;
+            type = TABBED;
+        }
+    }
+}
+
+FORM billTypes 'Типы поступления'
     OBJECTS o = BillType
     PROPERTIES(o) READONLY name, id
     
@@ -42,7 +51,7 @@ DESIGN options {
 }
 
 // default type
-countBillTypes 'Кол-во типов' () = GROUP SUM 1 IF r IS BillType; 
+countBillType 'Кол-во типов' () = GROUP SUM 1 IF r IS BillType; 
 firstBillType = GROUP LAST BillType r ORDER DESC r WHERE r IS BillType;
 
-defaultBillType = firstBillType() IF countBillTypes() = 1;
+defaultBillType = firstBillType() IF countBillType() = 1;

@@ -4,13 +4,13 @@ REQUIRE ScrapType;
 
 NAMESPACE Inventory;
 
-loadInitialData () + {
+loadDefaultData () + {
     NEW r = ScrapType {
-        name(r) <- 'Списание товара';
+        name(r) <- 'Списание';
 
         NEW n = Numerator {
-            name(n) <- 'Списание товара';
-            series(n) <- 'СТ';
+            name(n) <- 'Списание';
+            series(n) <- 'СПТ';
             minValue(n) <- 1;
             maxValue(n) <- 999999;
             stringLength(n) <- 6;

@@ -4,13 +4,13 @@ REQUIRE BillType;
 
 NAMESPACE Invoicing;
 
-loadInitialData () + {
+loadDefaultData () + {
     NEW t = BillType {
         name(t) <- 'Закупка у поставщика';
         id(t) <- 'wholesale';
         NEW n = Numerator {
             name(n) <- 'Закупка у поставщика';
-            series(n) <- 'ЗП';
+            series(n) <- 'ПРП';
             minValue(n) <- 1;
             maxValue(n) <- 999999;
             stringLength(n) <- 6;

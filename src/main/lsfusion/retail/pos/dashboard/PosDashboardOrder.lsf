@@ -6,8 +6,8 @@ NAMESPACE Retail;
 
 EXTEND FORM posDashboard
     OBJECTS o = Order
-    PROPERTIES(o) READONLY nameType, number, nameCustomer, scheduledDateTime, nameLocation, untaxedAmount, totalTax, totalAmount
-    PROPERTIES(o) EDIT
+    PROPERTIES(o) READONLY nameType, number, nameCustomer, scheduledDateTime, nameLocation, untaxedAmount, taxAmount, amount
+    PROPERTIES(o) NEWSESSION EDIT
     
     FILTERS customer(i) = customer(o) OR (NOT customer(i) AND NOT customer(o)),
             status(o) = OrderStatus.confirmed
@@ -21,6 +21,7 @@ DESIGN posDashboard {
         MOVE BOX(o) {
             showIf = openedSession(p);
             caption = 'По заказу';
+            MOVE TOOLBAR(o) { alignment = END; }
         }
     }
 }

@@ -4,10 +4,15 @@ REQUIRE ShipmentPrintRu;
 
 NAMESPACE Inventory;
 
-loadInitialData () + {
+loadDefaultData () + {
     NEW tm = ShipmentTemplate {
         name(tm) <- 'Расходный ордер';
         template(tm) <- 'ShipmentRu.jrxml';
+        in(tm, ShipmentType t) <- TRUE;
+    }
+    NEW tm = ShipmentTemplate {
+        name(tm) <- 'ТОРГ-13';
+        template(tm) <- 'Torg13.jrxml';
         in(tm, ShipmentType t) <- TRUE;
     }
 }

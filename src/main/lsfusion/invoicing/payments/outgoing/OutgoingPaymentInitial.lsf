@@ -4,13 +4,14 @@ REQUIRE OutgoingPaymentType;
 
 NAMESPACE Invoicing;
 
-loadInitialData () + {
+loadDefaultData () + {
     NEW i = OutgoingPaymentType {
         name(i) <- 'Оплата на счет поставщику';
         id(i) <- 'vendorbank';
+        bank(i) <- TRUE;
         NEW n = Numerator {
             name(n) <- 'Оплата на счет поставщику';
-            series(n) <- 'ПБ';
+            series(n) <- 'ОПБ';
             minValue(n) <- 1;
             maxValue(n) <- 999999;
             stringLength(n) <- 6;
@@ -20,9 +21,10 @@ loadInitialData () + {
     NEW i = OutgoingPaymentType {
         name(i) <- 'Оплата наличными поставщику';
         id(i) <- 'vendorcash';
+        cash(i) <- TRUE;
         NEW n = Numerator {
             name(n) <- 'Оплата наличными поставщику';
-            series(n) <- 'ПН';
+            series(n) <- 'ОПН';
             minValue(n) <- 1;
             maxValue(n) <- 999999;
             stringLength(n) <- 6;
@@ -32,9 +34,10 @@ loadInitialData () + {
     NEW i = OutgoingPaymentType {
         name(i) <- 'Возврат на счет покупателю';
         id(i) <- 'customerbank';
+        bank(i) <- TRUE;
         NEW n = Numerator {
             name(n) <- 'Возврат на счет покупателю';
-            series(n) <- 'ВБ';
+            series(n) <- 'ОВБ';
             minValue(n) <- 1;
             maxValue(n) <- 999999;
             stringLength(n) <- 6;
@@ -44,9 +47,10 @@ loadInitialData () + {
     NEW i = OutgoingPaymentType {
         name(i) <- 'Возврат наличными покупателю';
         id(i) <- 'customercash';
+        cash(i) <- TRUE;
         NEW n = Numerator {
             name(n) <- 'Возврат наличными покупателю';
-            series(n) <- 'ВН';
+            series(n) <- 'ОВН';
             minValue(n) <- 1;
             maxValue(n) <- 999999;
             stringLength(n) <- 6;

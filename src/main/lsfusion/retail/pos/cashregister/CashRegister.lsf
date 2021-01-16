@@ -14,7 +14,7 @@ driver 'Драйвер' = DATA CashDriver (Pos);
 nameDriver 'Драйвер' (Pos p) = name(driver(p));
 
 dataHostname 'Хост' = DATA ISTRING[30] (Pos);
-hostname 'Хост' (Pos p) = OVERRIDE dataHostname(p), hostname(currentComputer()); 
+hostname 'Хост' (Pos p) = OVERRIDE dataHostname(p), 'localhost'; 
 
 FORM cashDrivers 'Драйверы'
     OBJECTS d = CashDriver
@@ -24,7 +24,7 @@ FORM cashDrivers 'Драйверы'
 ;
 
 EXTEND FORM pos PROPERTIES(p) nameDriver, dataHostname SHOWIF driver(p);    
-EXTEND FORM poss PROPERTIES(p) READONLY nameDriver, hostname;
+EXTEND FORM poss PROPERTIES(p) READONLY nameDriver;
 
 session = DATA Session (Payment);
 
@@ -52,7 +52,7 @@ afterWithdraw(Pos p, OutgoingPayment o) + {
 fiscalOpenSession 'Фискальный' = DATA BOOLEAN (Session);
 fiscalCloseSession 'Фискальный' = DATA BOOLEAN (Session);
 
-refiscalSession (Session s) {
+refiscalSession 'Фискализация' (Session s) {
     IF fiscalOpenSession(s) AND NOT fiscalCloseSession(s) AND closingDateTime(s) THEN
         closeShift(s);
     ELSE
@@ -67,13 +67,13 @@ EXTEND FORM session
 ;
 
 DESIGN session {
-    GROUP (,s) {
-        type = CONTAINERH;
-        MOVE PROPERTY(fiscalOpenSession(s)) AFTER PROPERTY(namePos(s));
-        MOVE PROPERTY(fiscalCloseSession(s)) AFTER PROPERTY(namePos(s));
-    }
-    TOOLBARRIGHT {
-        MOVE PROPERTY(refiscalSession(s)) AFTER PROPERTY(formRefresh()) { caption = 'Фискализация'; };
+    header {
+        NEW fiscal {
+            type = CONTAINERH;
+            MOVE PROPERTY(fiscalOpenSession(s));
+            MOVE PROPERTY(fiscalCloseSession(s));
+            MOVE PROPERTY(refiscalSession(s));
+        }
     }
 }
 
@@ -84,7 +84,7 @@ DESIGN session {
 EXTEND FORM posDashboard PROPERTIES(p) continuePrint, reportX; 
 
 DESIGN posDashboard {
-    sessionHeader {
+    cashRegister {
         MOVE PROPERTY(continuePrint(p));
         MOVE PROPERTY(reportX(p));
     }

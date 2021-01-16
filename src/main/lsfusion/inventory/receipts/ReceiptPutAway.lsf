@@ -42,7 +42,7 @@ DESIGN receipt {
 // put away process
 CLASS ReceiptPutAway 'Размещение';
 
-receiptLine 'Строка поступления' = DATA ReceiptLine (ReceiptPutAway) NONULL DELETE;
+receiptLine 'Строка приемки' = DATA ReceiptLine (ReceiptPutAway) NONULL DELETE;
 
 location 'Место хранения' = DATA Location (ReceiptPutAway);
 nameLocation 'Место хранения' (ReceiptPutAway p) = name(location(p));
@@ -60,7 +60,7 @@ CONSTRAINT put(ReceiptLine l) > done(l) MESSAGE 'Размещенное коли
 
 EXTEND FORM receipt  
     OBJECTS p = ReceiptPutAway
-    PROPERTIES(p) nameLocation, quantity, DELETE
+    PROPERTIES(p) nameLocation, quantity, DELETE GRID
     FILTERS receiptLine(p) = l
 ;
 
@@ -76,7 +76,7 @@ DESIGN putAwayLoc {
     PROPERTY(formOk()) { changeKey = 'ENTER'; }
 }
 
-newPutAway 'Разместить' (ReceiptLine ln) {
+newPutAway 'Разместить (+)' (ReceiptLine ln) {
     DIALOG putAwayLoc OBJECTS l INPUT, loc = location(receipt(ln)) DO {
         DIALOG dialogQuantity OBJECTS q = done(ln) (-) put(ln) INPUT DO {
             IF q > 0 THEN {
@@ -89,7 +89,7 @@ newPutAway 'Разместить' (ReceiptLine ln) {
             } 
         }
     }
-} CHANGEKEY 'ADD';
+} CHANGEKEY 'ADD' HIDE;
 
 toPutAway (Receipt r) = putAway(type(r)) AND (ready(r) OR done(r));
 
@@ -100,18 +100,21 @@ EXTEND FORM receipt
 ;
 
 DESIGN receipt {
-    lines {
-        type = SPLITH;
-        MOVE BOX(p) {
-            fill = 0.5;
+    linesTab {
+        NEW receiptPutAway {
+            caption = 'Размещение';
             showIf = toPutAway(r);
+            MOVE GRID(p);
+            MOVE TOOLBARBOX(p);
         }
     }
 }
 
 // invledger
-CLASS ReceiptPutAwayLedger 'Поступление' : InvLedger;
+CLASS ReceiptPutAwayLedger 'Приемка' : InvLedger;
 putAwayLedger = AGGR ReceiptPutAwayLedger WHERE quantity(ReceiptPutAway line);
+
+type(ReceiptPutAwayLedger l) += nameType(receipt(receiptLine(line(l))));
 
 active(ReceiptPutAwayLedger l) += active(receipt(receiptLine(line(l))));
 dateTime(ReceiptPutAwayLedger l) += executionDateTime(receipt(receiptLine(line(l))));

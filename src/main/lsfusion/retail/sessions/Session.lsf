@@ -1,6 +1,6 @@
 MODULE Session;
 
-REQUIRE MetaNumerator, MasterDataSettings, Time, 
+REQUIRE MetaNumerator, Time, DateUtils, 
         RetailSettings, Pos;
 
 NAMESPACE Retail;
@@ -9,6 +9,7 @@ CLASS Session 'Смена';
 
 openingDateTime 'Открыта' = DATA DATETIME (Session) NONULL;
 openingDateTime(Session s) <- currentDateTime() WHEN SET(s IS Session);
+@defineDateTimeAggregation(Session, opening, ' открытия');
 
 closingDateTime 'Закрыта' = DATA DATETIME (Session);
 CONSTRAINT closingDateTime(Session s) < openingDateTime(s)
@@ -18,6 +19,8 @@ opened 'Открыта' (Session s) = openingDateTime(s) AND NOT closingDateTime
 
 @defineNumber(session, 'Смены', 'СМ');
 
+numberDate 'Описание' (Session s) = number(s) + ' от ' + openingDateTime(s) IN id;
+
 pos 'POS' = DATA Pos (Session) NONULL;
 namePos 'POS' (Session s) = name(pos(s));
 
@@ -26,13 +29,28 @@ openedSession (Pos p) = GROUP AGGR Session s WHERE opened(s) BY pos(s);
 
 FORM session 'Смена'
     OBJECTS s = Session PANEL
-    PROPERTIES(s) openingDateTime, closingDateTime, number, namePos
+    PROPERTIES(s) namePos, number, 
+                  openingDateTime, closingDateTime
     
     EDIT Session OBJECT s
 ;
 
 DESIGN session {
     OBJECTS {
+        NEW header {
+            NEW title {
+                type = CONTAINERH;
+                alignment = STRETCH;
+                MOVE PROPERTY(namePos(s));
+                MOVE PROPERTY(number(s));
+            }
+            NEW period {
+                type = CONTAINERH;
+                alignment = STRETCH;
+                MOVE PROPERTY(openingDateTime(s));
+                MOVE PROPERTY(closingDateTime(s));
+            }
+        }
         NEW tabPane {
             fill = 1;
             type = TABBED;
@@ -47,6 +65,8 @@ FORM sessions 'Смены'
     
     LIST Session OBJECT o
 ;
+
+@defineDateFilterForm(sessions, o, opening);
 
 NAVIGATOR {
     operations {

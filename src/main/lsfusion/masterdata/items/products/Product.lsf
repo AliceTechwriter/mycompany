@@ -1,6 +1,6 @@
 MODULE Product;
 
-REQUIRE MasterData, Item;
+REQUIRE MasterData, Item, CountryP;
 
 NAMESPACE MasterData;
 
@@ -8,11 +8,15 @@ CLASS Product 'Товар' : Item;
 weight 'Вес единицы, кг' = DATA NUMERIC[11,3] (Product);
 volume 'Объем единицы, м3' = DATA NUMERIC[11,3] (Product);
 
-copyProduct 'Копировать' (Product p) {
+countryOrigin 'Страна происхождения'  = DATA Country (Product);
+nameCountryOrigin 'Страна происхождения' (Product p) = name(countryOrigin(p));
+
+copy 'Копировать' (Product p) {
     NEWSESSION {
         NEW np = Product {
             weight(np) <- weight(p);
             volume(np) <- volume(p);
+            countryOrigin(np) <- countryOrigin(p);
             copy(np, p);
             SHOW item OBJECTS i = np;
         }
@@ -20,12 +24,13 @@ copyProduct 'Копировать' (Product p) {
 }
 
 EXTEND FORM item
-    PROPERTIES(i) weight, volume
+    PROPERTIES(i) weight, volume, nameCountryOrigin
 ;
 
 DESIGN item {
     tabs {
-        NEW product {
+        NEW inventory {
+            showIf = i IS Product;
             caption = 'Склад';
             NEW box1 {
                 MOVE PROPERTY(weight(i)) { charWidth = 5; };
@@ -33,6 +38,19 @@ DESIGN item {
             }  
         }
     }
+    column2 {
+        MOVE PROPERTY(nameCountryOrigin(i));
+    }
+}
+
+EXTEND FORM items
+    PROPERTIES(i) GRID READONLYIF isReadonly() weight, volume, nameCountryOrigin
+;
+
+DESIGN items {
+    PROPERTY(weight(i)) { hide = TRUE; }
+    PROPERTY(volume(i)) { hide = TRUE; }
+    PROPERTY(nameCountryOrigin(i)) { hide = TRUE; }
 }
 
 newProduct 'Товар' (Category c) {
@@ -44,19 +62,29 @@ newProduct 'Товар' (Category c) {
     }
 } IMAGE 'add.png' CHANGEKEY 'INSERT' HIDE;
 
+EXTEND FORM item 
+    PROPERTIES copyProduct = copy(i)
+;
+DESIGN item {
+    secondaryActions {
+        MOVE PROPERTY(copyProduct);
+    }
+}
+
 EXTEND FORM items
-    PROPERTIES newProduct(c) DRAW i TOOLBAR, copyProduct(i) DRAW i TOOLBAR 
+    PROPERTIES newProduct(c) DRAW i TOOLBAR 
 ;
 
 // dialog product
 FORM products 'Товары'
     TREE categories c = Category PARENT parent(c)
     PROPERTIES READONLY name(c)
-    ORDER name(c)
+    ORDERS name(c)
 
     OBJECTS p = Product
-    PROPERTIES(p) READONLY name, id, nameCategory, nameUom
-    PROPERTIES(p) NEWSESSION NEW, EDIT, DELETE 
+    PROPERTIES(p) READONLY name, id, nameCategory, nameUom, reference
+    PROPERTIES(p) NEWSESSION NEW, EDIT, DELETE
+    ORDERS name(p) 
     FILTERS level(category(p), c)
     FILTERGROUP active
         FILTER 'Активный' active(p) 'F8' DEFAULT 

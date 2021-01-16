@@ -39,7 +39,10 @@ EXTEND FORM bill
 ;
 
 // add
-fill (Bill b, Invoice i) {
+fill ABSTRACT (BillLine, InvoiceLine);
+fill ABSTRACT (Bill, Invoice);
+ 
+create (Bill b, Invoice i) {
     type(b) <- billType(type(i));
         
     vendor(b) <- customer(i);
@@ -57,7 +60,11 @@ fill (Bill b, Invoice i) {
         item(bl) <- item(l);
 
         quantity(bl) <- quantity(l);
+        
+        fill(bl, l);
     }
+    
+    fill(b, i);
 }
 
 addCreditNote 'Вернуть' (Invoice i) {
@@ -66,7 +73,7 @@ addCreditNote 'Вернуть' (Invoice i) {
     
     NEWSESSION { 
         NEW b = Bill {
-            fill(b, i);
+            create(b, i);
             SHOW bill OBJECTS b = b DOCKED;
         }
         

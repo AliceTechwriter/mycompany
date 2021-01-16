@@ -4,71 +4,109 @@ REQUIRE Authentication, Time, BarCode;
 
 NAMESPACE Utils;
 
-META defineStatus (doc, title)
-   CLASS ###doc##Status 'Статус '##title {
-       draft 'Черновик'
-   }
-   
-   name 'Имя' (###doc##Status s) = staticCaption(s) IF s IS ###doc##Status CHARWIDTH 15;
-   
-   status 'Статус' = ABSTRACT CASE ###doc##Status (###doc);
-   nameStatus 'Статус' (###doc d) = name(status(d));
-   colorStatus 'Цвет' = ABSTRACT CASE COLOR (###doc);
-   
-   status(###doc d) += WHEN d IS ###doc THEN ###doc##Status.draft;
-   colorStatus(###doc d) += WHEN status(d) == ###doc##Status.draft THEN RGB(187,242,210);
-
-   isDraft (###doc d) = status(d) = ###doc##Status.draft;
+META defineDocObjectsForm (form, obj, title)
+    DESIGN form {
+        OBJECTS {
+            NEW pane {
+                fill = 1;
+                type = CONTAINERH;
+                NEW tabbedPane {
+                    type = TABBED;
+                    fill = 1;
+                    MOVE BOX(obj) { caption = title; }
+                }
+                NEW rightPane {
+                    NEW filters {
+                        caption = 'Фильтры';
+                        alignment = STRETCH;
+                        MOVE FILTERGROUPS(obj) {
+                            type = CONTAINERV;
+                            alignment = STRETCH;
+                        }
+                    }
+                    NEW actions {
+                        alignment = STRETCH;
+                        caption = 'Действия';
+                    }
+                    NEW statuses {
+                        alignment = STRETCH;
+                        caption = 'Статусы';
+                    }
+                }
+            }
+        }
+    }
 END
 
-META defineStatusForm (doc, let)
-   EXTEND FORM ##doc##s
-       PROPERTIES(##let) READONLY nameStatus BACKGROUND colorStatus(##let) BEFORE number(##let)
-       FILTERGROUP status
-           FILTER 'Черновик' status(##let) = ###doc##Status.draft
-   ;
-   
-   EXTEND FORM ##doc
-       PROPERTIES(##let) nameStatus BACKGROUND colorStatus(##let)
-   ;
-   
-   DESIGN ##doc {
-       NEW statusPane FIRST {
-           caption = 'Статусы';
-           type = CONTAINERH;
-           alignment = STRETCH;                          
-           NEW statusActions {
-               type = CONTAINERH;                    
-               flex = 1; 
-               NEW primaryActions {
-                   type = CONTAINERH;
-               }
-               NEW secondaryActions {
-                   type = CONTAINERH;
-               }           
-           }
-           NEW status {
-               type = CONTAINERH;
-               MOVE PROPERTY(nameStatus(##let));
-           }
-       }    
-   } 
+META defineDocStatus (doc, title)
+    CLASS ###doc##Status 'Статус '##title {
+        draft 'Черновик'
+    }
+    
+    name 'Имя' (###doc##Status s) = staticCaption(s) IF s IS ###doc##Status CHARWIDTH 12;
+    
+    status 'Статус' = ABSTRACT CASE ###doc##Status (###doc) MATERIALIZED INDEXED;
+    nameStatus 'Статус' (###doc d) = name(status(d));
+    colorStatus 'Цвет' = ABSTRACT CASE COLOR (###doc);
+    
+    status(###doc d) += WHEN d IS ###doc THEN ###doc##Status.draft;
+    colorStatus(###doc d) += WHEN status(d) = ###doc##Status.draft THEN RGB(187,242,210);
+    
+    readonly = ABSTRACT CASE BOOLEAN (###doc);
 END
 
-META defineDocSearchAction (doc, it, fun, capt)
+META defineDocStatusForm (doc, let)
+    EXTEND FORM doc##s
+        PROPERTIES(##let) READONLY nameStatus BACKGROUND colorStatus(##let) FIRST
+        FILTERGROUP status
+            FILTER 'Черновик' status(##let) = ###doc##Status.draft
+    ;
+    
+    DESIGN doc##s {
+        FILTERGROUP(status) { alignment = STRETCH; }
+    }
+    
+    EXTEND FORM doc
+        PROPERTIES(##let) nameStatus BACKGROUND colorStatus(##let)
+    ;
+    
+    DESIGN doc {
+        NEW statusPane FIRST {
+            caption = 'Статусы';
+            type = CONTAINERH;
+            alignment = STRETCH;                          
+            NEW statusActions {
+                type = CONTAINERH;                    
+                flex = 1; 
+                NEW primaryActions {
+                    type = CONTAINERH;
+                }
+                NEW secondaryActions {
+                    type = CONTAINERH;
+                }           
+            }
+            NEW status {
+                type = CONTAINERH;
+                MOVE PROPERTY(nameStatus(##let));
+            }
+        }    
+    } 
+END
+
+META defineDocSearchAction (doc, docLine, it, fun, capt)
     fun capt (###doc i, ###it p) = 
-        GROUP SUM fun(###doc##Line l) BY doc(l), it(l);
+        GROUP SUM fun(docLine l) BY doc(l), it(l);
     
     set###fun (###doc i, ###it p, NUMERIC[14,3] q) {
-        IF last###doc##Line(i, p) THEN {
+        IF last##docLine(i, p) THEN {
             IF q THEN
-                fun(###doc##Line l) <- q IF l = last###doc##Line(i, p)
+                fun(docLine l) <- q IF l = last##docLine(i, p)
                     WHERE doc(l) = i AND it(l) = p;
             ELSE
-                DELETE ###doc##Line l WHERE doc(l) = i AND it(l) == p;
+                DELETE docLine l WHERE doc(l) = i AND it(l) = p;
         } ELSE
             IF q THEN
-                NEW l = ###doc##Line{
+                NEW l = docLine{
                     doc(l) <- i;
                     it(l) <- p;
                     fun(l) <- q;
@@ -82,15 +120,20 @@ META defineDocSearchAction (doc, it, fun, capt)
     }
 END
 
+META defineDocSearchAction (doc, it, fun, capt)
+    @defineDocSearchAction (doc, ###doc##Line, it, fun, capt);
+END
+
 META defineDocSearchTab (doc, it)
     EXTEND FORM doc
         TREE categories c = Category PARENT parent(c)
         PROPERTIES READONLY name(c)
-        ORDER name(c)
+        ORDERS name(c)
         
         OBJECTS itm = ###it
         PROPERTIES(itm) READONLY name, nameUom, idBarCode, id
-        PROPERTIES(itm) EDIT
+        PROPERTIES(itm) NEWSESSION EDIT
+        ORDERS name(itm)
         FILTERS level(category(itm), c)
         FILTERGROUP active
             FILTER 'Активный' active(itm) 'F10' DEFAULT  
@@ -131,45 +174,47 @@ META defineDocSearch (doc, it, fun, capt, let, check)
 END
 
 disableHistory 'Отключить запись истории' = DATA BOOLEAN () PREREAD;
-EXTEND FORM MasterData.options 
+EXTEND FORM System.options 
     PROPERTIES() disableHistory
 ;
-DESIGN MasterData.options {
-    general { 
+DESIGN System.options {
+    commons { 
         MOVE PROPERTY(disableHistory()); 
     }
 }
 
 META defineDocHistory(doc, let, class, fun)
 
-    @defineDocHistoryHead(##doc, ##let);
+    @defineDocHistoryHead(doc, ##let);
     
-    WHEN SETCHANGED(###doc##Line l IS ###doc##Line) AND ##doc(l) = ###doc ##let 
+    WHEN SETCHANGED(###doc##Line l IS ###doc##Line) AND doc(l) = ###doc ##let 
                         AND NOT status(##let) = ###doc##Status.draft AND NOT disableHistory() DO {     
         NEW h = ###doc##History {
-            ##doc(h) <- ##let;
+            doc(h) <- ##let;
             dateTime(h) <- currentDateTime();
             user(h) <- currentUser();
+            computer(h) <- currentComputer();
             type(h) <- 'Добавлена строка';
             description (h) <- 'Добавлена строка с индексом ' + index(l);
         }
     }
     
-    WHEN DROPPED(###doc##Line l IS ###doc##Line) AND PREV(##doc(l)) = ###doc ##let 
+    WHEN DROPPED(###doc##Line l IS ###doc##Line) AND PREV(doc(l)) = ###doc ##let 
                         AND NOT status(##let) = ###doc##Status.draft AND NOT disableHistory() DO {     
         NEW h = ###doc##History {
-            ##doc(h) <- ##let;
+            doc(h) <- ##let;
             dateTime(h) <- currentDateTime();
             user(h) <- currentUser();
+            computer(h) <- currentComputer();
             type(h) <- 'Удалена строка';
             description (h) <- 'Удалена строка с индексом ' + PREV(index(l));
         }
     }
     
-    WHEN CHANGED(##fun(###doc##Line l)) AND ##doc(l) = ###doc ##let 
+    WHEN CHANGED(##fun(###doc##Line l)) AND doc(l) = ###doc ##let 
                         AND NOT status(##let) = ###doc##Status.draft AND NOT disableHistory() DO {     
         NEW h = ###doc##History {
-            ##doc(h) <- ##let;
+            doc(h) <- ##let;
             dateTime(h) <- currentDateTime();
             user(h) <- currentUser();
             type(h) <- 'Изменено исходное кол-во';
@@ -177,12 +222,13 @@ META defineDocHistory(doc, let, class, fun)
         }
     }
     
-    WHEN CHANGED(class(###doc##Line l)) AND ##doc(l) = ###doc ##let 
+    WHEN CHANGED(class(###doc##Line l)) AND doc(l) = ###doc ##let 
                         AND NOT status(##let) = ###doc##Status.draft AND NOT disableHistory() DO {     
         NEW h = ###doc##History {
-            ##doc(h) <- ##let;
+            doc(h) <- ##let;
             dateTime(h) <- currentDateTime();
             user(h) <- currentUser();
+            computer(h) <- currentComputer();
             type(h) <- 'Изменен продукт';
             description (h) <- 'Изменен продукт в строке ' + index(l) + ' на ' + name###class(l);
         }
@@ -192,19 +238,25 @@ END
 META defineDocHistoryHead(doc, let)
     CLASS ###doc##History 'История изменений';
     
-    ##doc = DATA ###doc (###doc##History);
+    doc = DATA ###doc (###doc##History);
 
     dateTime 'Дата' = DATA DATETIME (###doc##History);
-    user 'Пользователь' = DATA User (###doc##History) CHARWIDTH 15;
+    
+    user = DATA User (###doc##History);
     nameUser 'Пользователь' (###doc##History l) = name(user(l));
-    type 'Тип' = DATA ISTRING[100] (###doc##History);
+    
+    computer = DATA Computer (###doc##History);
+    hostnameComputer 'Компьютер' (###doc##History l) = hostname(computer(l)) CHARWIDTH 10;
+    
+    type 'Тип' = DATA ISTRING[100] (###doc##History) CHARWIDTH 15;
     description 'Описание' = DATA TEXT (###doc##History);
      
     WHEN SETCHANGED(status(###doc let)) AND NOT disableHistory() DO {     
         NEW l = ###doc##History {
-            ##doc(l) <- let;
+            doc(l) <- let;
             dateTime(l) <- currentDateTime();
             user(l) <- currentUser();
+            computer(l) <- currentComputer();
             type(l) <- 'Изменен статус';
             description (l) <- 'Изменен статус на ' + staticCaption(status(let));
         }
@@ -212,8 +264,8 @@ META defineDocHistoryHead(doc, let)
 
     EXTEND FORM doc
         OBJECTS doc##l = ###doc##History
-        PROPERTIES(doc##l) READONLY dateTime, nameUser, type, description, pdescription = description PANEL
-        FILTERS ##doc(doc##l) = let
+        PROPERTIES(doc##l) READONLY dateTime, nameUser, hostnameComputer, type, description, pdescription = description PANEL
+        FILTERS doc(doc##l) = let
     ;
     
     DESIGN doc {
@@ -226,7 +278,7 @@ META defineDocHistoryHead(doc, let)
                     fill = 2;
                     PROPERTY(description(doc##l)) { valueHeight = 18; }
                 }
-                MOVE PROPERTY(pdescription) { panelCaptionAbove = TRUE; fill = 1; }
+                MOVE PROPERTY(pdescription) { panelCaptionVertical = TRUE; fill = 1; }
             }
         }
     }
@@ -261,6 +313,7 @@ META defineDocLineRelation(docTo, docFrom, captTo, captFrom, objTo, objFrom)
     in (###docTo i, ###docFrom s) = GROUP SUM 1 IF docTo(docTo##Line(###docFrom##Line l)) = i AND docFrom(l) = s MATERIALIZED; 
     
     count###docTo (###docFrom s) = GROUP SUM 1 IF in(###docTo i, s) MATERIALIZED;
+    count###docFrom##s (###docTo i) = GROUP SUM 1 IF in(i, ###docFrom s) MATERIALIZED;
     numberDate###docTo captTo (###docFrom s) = GROUP CONCAT numberDate(###docTo i) IF in(i, s), ',' CHARWIDTH 30; 
     numberDate###docTo##Line captTo (###docFrom##Line s) = numberDate(docTo##Line(s)); 
 
@@ -313,4 +366,33 @@ META defineDocDiscountForm (doc)
     EXTEND FORM doc
         PROPERTIES(l) AFTER price(l) discount, discountPrice ON CHANGE changeDiscountPrice(l)
     ;
+END
+
+META defineDocLinesCount(doc, d) 
+    count###doc###Line 'Кол-во строк' (###doc d) = GROUP SUM 1 IF doc(###doc###Line l) = d MATERIALIZED;
+    
+    DESIGN doc {
+        lines {
+            caption = (CONCAT ' ', 'Строки', '(' + count###doc##Line(d) + ')');
+        }
+    }
+    EXTEND FORM doc##s PROPERTIES(d) READONLY count###doc###Line;
+END
+
+META defineDocFilter(doc, cls, property, obj, caption)
+    doc###property = DATA LOCAL NESTED cls ();
+    name###doc###property caption = name(doc###property());
+
+    EXTEND FORM doc##s 
+        PROPERTIES() name###doc###property
+        
+        FILTERS property(obj) = doc###property() OR NOT doc###property()
+    ;
+    
+    DESIGN doc##s {
+        filters {
+            MOVE PROPERTY(name###doc###property());
+        }
+    }
+
 END

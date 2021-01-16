@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Created with Jaspersoft Studio version 6.6.0.final using JasperReports Library version 6.6.0  -->
+<!-- Created with Jaspersoft Studio version 6.12.2.final using JasperReports Library version 6.12.2-75c5e90a222ab406e416cbf590a5397028a52de3  -->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Реализация" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="30" bottomMargin="30" isFloatColumnFooter="true" uuid="a51f6d25-4c68-4694-a79d-09a675e63348">
 	<property name="net.sf.jasperreports.export.xls.print.page.width" value="842"/>
 	<property name="net.sf.jasperreports.export.xls.print.page.height" value="595"/>
@@ -27,9 +27,12 @@
 		</box>
 		<paragraph leftIndent="2" rightIndent="2"/>
 	</style>
+	<queryString>
+		<![CDATA[]]>
+	</queryString>
 	<field name="o.object" class="java.lang.Long"/>
-	<field name="dateTime(o)" class="java.sql.Timestamp"/>
-	<field name="dueDateTime(o)" class="java.sql.Timestamp"/>
+	<field name="dateTime(o)" class="java.util.Date"/>
+	<field name="dueDateTime(o)" class="java.util.Date"/>
 	<field name="number(o)" class="java.lang.String"/>
 	<field name="nameCompany(o)" class="java.lang.String"/>
 	<field name="addressCompany(o)" class="java.lang.String"/>
@@ -40,6 +43,8 @@
 	<field name="addressCustomer(o)" class="java.lang.String"/>
 	<field name="phoneCustomer(o)" class="java.lang.String"/>
 	<field name="nameLocation(o)" class="java.lang.String"/>
+	<field name="numberDateContract(o)" class="java.lang.String"/>
+	<field name="descriptionContract(o)" class="java.lang.String"/>
 	<field name="innCustomer(o)" class="java.lang.String"/>
 	<field name="innCompany(o)" class="java.lang.String"/>
 	<field name="okpoCustomer(o)" class="java.lang.String"/>
@@ -52,33 +57,35 @@
 	<field name="l.object" class="java.lang.Long"/>
 	<field name="nameItem(l)" class="java.lang.String"/>
 	<field name="idItem(l)" class="java.lang.String"/>
-	<field name="nameUom(l)" class="java.lang.String"/>
-	<field name="quantity(l)" class="java.math.BigDecimal"/>
-	<field name="price(l)" class="java.math.BigDecimal"/>
-	<field name="subtotal(l)" class="java.math.BigDecimal"/>
-	<field name="percentTax(l)" class="java.math.BigDecimal"/>
-	<field name="totalTax(l)" class="java.math.BigDecimal"/>
+	<field name="nameUom" class="java.lang.String"/>
+	<field name="quantity" class="java.math.BigDecimal"/>
+	<field name="price" class="java.math.BigDecimal"/>
+	<field name="untaxedAmount(l)" class="java.math.BigDecimal"/>
+	<field name="taxPercent(l)" class="java.math.BigDecimal"/>
+	<field name="taxAmount(l)" class="java.math.BigDecimal"/>
 	<field name="taxes(l)" class="java.lang.String"/>
-	<field name="totalAmount(l)" class="java.math.BigDecimal"/>
+	<field name="amount(l)" class="java.math.BigDecimal"/>
 	<field name="weight(l)" class="java.math.BigDecimal"/>
 	<field name="legalCodeUom(l)" class="java.lang.String"/>
-	<variable name="sumSubtotalPage" class="java.lang.Integer" resetType="Page" calculation="Sum">
-		<variableExpression><![CDATA[$F{subtotal(l)}]]></variableExpression>
+	<field name="nameCountryOrigin(l)" class="java.lang.String"/>
+	<field name="idCountryOrigin(l)" class="java.lang.String"/>
+	<variable name="sumSubtotalPage" class="java.math.BigDecimal" resetType="Page" calculation="Sum">
+		<variableExpression><![CDATA[$F{untaxedAmount(l)}]]></variableExpression>
 	</variable>
-	<variable name="sumTaxPage" class="java.lang.Integer" resetType="Page" calculation="Sum">
-		<variableExpression><![CDATA[$F{totalTax(l)}]]></variableExpression>
+	<variable name="sumTaxPage" class="java.math.BigDecimal" resetType="Page" calculation="Sum">
+		<variableExpression><![CDATA[$F{taxAmount(l)}]]></variableExpression>
 	</variable>
-	<variable name="sumTotalPage" class="java.lang.Integer" resetType="Page" calculation="Sum">
-		<variableExpression><![CDATA[$F{totalAmount(l)}]]></variableExpression>
+	<variable name="sumTotalPage" class="java.math.BigDecimal" resetType="Page" calculation="Sum">
+		<variableExpression><![CDATA[$F{amount(l)}]]></variableExpression>
 	</variable>
-	<variable name="sumSubtotal" class="java.lang.Integer" calculation="Sum">
-		<variableExpression><![CDATA[$F{subtotal(l)}]]></variableExpression>
+	<variable name="sumSubtotal" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[$F{untaxedAmount(l)}]]></variableExpression>
 	</variable>
-	<variable name="sumTax" class="java.lang.Integer" calculation="Sum">
-		<variableExpression><![CDATA[$F{totalTax(l)}]]></variableExpression>
+	<variable name="sumTax" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[$F{taxAmount(l)}]]></variableExpression>
 	</variable>
-	<variable name="sumTotal" class="java.lang.Integer" calculation="Sum">
-		<variableExpression><![CDATA[$F{totalAmount(l)}]]></variableExpression>
+	<variable name="sumTotal" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[$F{amount(l)}]]></variableExpression>
 	</variable>
 	<title>
 		<band height="296">
@@ -652,7 +659,7 @@
 				<textElement verticalAlignment="Middle">
 					<font isBold="true"/>
 				</textElement>
-				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{numberDateContract(o)}]]></textFieldExpression>
 			</textField>
 			<textField>
 				<reportElement x="777" y="272" width="25" height="14" uuid="8aec2979-2400-4ecb-b02a-4967fa1384ef"/>
@@ -984,7 +991,7 @@
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nameUom(l)}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nameUom}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement x="150" y="0" width="50" height="12" uuid="fd203f9b-0e92-40ed-9b1c-ab24fd6f9b02"/>
@@ -1004,7 +1011,7 @@
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{quantity(l)}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{quantity}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement x="260" y="0" width="60" height="12" uuid="66fd0cbc-06d9-41cc-a301-ce50a0f9dc2e"/>
@@ -1014,7 +1021,7 @@
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{price(l)}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{price}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement x="320" y="0" width="60" height="12" uuid="f71ea3b0-a133-4ef2-a251-bafa693b7796"/>
@@ -1024,7 +1031,7 @@
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{subtotal(l)}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{untaxedAmount(l)}]]></textFieldExpression>
 			</textField>
 			<textField>
 				<reportElement x="380" y="0" width="50" height="12" uuid="1161d763-9b3a-4cf8-9bad-da018b62ea1f"/>
@@ -1044,7 +1051,7 @@
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{percentTax(l)}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{taxPercent(l)}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement x="480" y="0" width="60" height="12" uuid="9eac4730-a0a9-480b-8b2d-b840d2a2810e"/>
@@ -1054,7 +1061,7 @@
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{totalTax(l)}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{taxAmount(l)}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement x="540" y="0" width="82" height="12" uuid="d4fa31bb-3c12-47a6-b41b-68ed739d3cf2"/>
@@ -1064,9 +1071,9 @@
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{totalAmount(l)}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{amount(l)}]]></textFieldExpression>
 			</textField>
-			<textField>
+			<textField isBlankWhenNull="true">
 				<reportElement x="622" y="0" width="50" height="12" uuid="b92d980f-10a8-425f-98eb-6798eeb2dd28"/>
 				<box>
 					<pen lineWidth="0.75"/>
@@ -1074,9 +1081,9 @@
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{idCountryOrigin(l)}]]></textFieldExpression>
 			</textField>
-			<textField>
+			<textField isBlankWhenNull="true">
 				<reportElement x="672" y="0" width="60" height="12" uuid="89d8dc1d-2602-41af-9b7f-3d53ddcc925f"/>
 				<box>
 					<pen lineWidth="0.75"/>
@@ -1084,7 +1091,7 @@
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nameCountryOrigin(l)}]]></textFieldExpression>
 			</textField>
 			<textField>
 				<reportElement x="732" y="0" width="70" height="12" uuid="add576bd-e129-404f-8c09-f44704c399de"/>

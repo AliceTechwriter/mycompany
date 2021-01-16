@@ -73,8 +73,11 @@ EXTEND FORM shipment
 DESIGN shipment {
     lines {
         type = SPLITH;
-        MOVE BOX(loc) {
-            showIf = (picking(type(s)) AND waiting(s) AND NOT immediate(s));
+        linesTab {
+            MOVE BOX(loc) {
+                caption = 'Отбор';
+                showIf = (picking(type(s)) AND waiting(s) AND NOT immediate(s));
+            }
         }
     }
 }
@@ -83,6 +86,8 @@ DESIGN shipment {
 CLASS ShipmentPickingRes 'Отгрузка' : ResLedger;
 
 pickingLedger = AGGR ShipmentPickingRes WHERE reserved(ShipmentLine l, Location loc) AND toReserve(shipment(l));
+
+type(ShipmentPickingRes r) += nameType(shipment(l(r)));
 
 dateTime(ShipmentPickingRes r) += executionDateTime(shipment(l(r)));
 number(ShipmentPickingRes r) += number(shipment(l(r)));
@@ -97,6 +102,8 @@ reserved(ShipmentPickingRes r) += reserved(l(r),loc(r));
 CLASS ShipmentPickingInv 'Отгрузка' : InvLedger;
 
 invLedger = AGGR ShipmentPickingInv WHERE done(ShipmentLine l, Location loc);
+
+type(ShipmentPickingInv p) += nameType(shipment(l(p)));
 
 active(ShipmentPickingInv p) += active(shipment(l(p)));
 

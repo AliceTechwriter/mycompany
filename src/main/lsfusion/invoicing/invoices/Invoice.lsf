@@ -1,7 +1,7 @@
 MODULE Invoice;
 
 REQUIRE InvoicingSettings, TaxItem, BankAccount, 
-        MetaTax, PaymentTermsSales,  
+        MetaTax, PaymentTermsSales, DateUtils,
         ItemSales, PartnerSales, Company, 
         BarCode, MetaNumerator, Doc,
         InvoiceType, Product;
@@ -10,7 +10,7 @@ NAMESPACE Invoicing;
 
 CLASS Invoice 'Реализация';
 
-@defineStatus(invoice, 'счета');
+@defineDocStatus(invoice, 'счета');
 
 // type
 type 'Тип' = DATA InvoiceType (Invoice) NONULL;
@@ -21,10 +21,11 @@ WHEN LOCAL SET(Invoice s IS Invoice) AND NOT CHANGED(type(s)) DO type(s) <- defa
 // dateTime
 dateTime 'Дата' = DATA DATETIME (Invoice) NONULL IN id;
 WHEN LOCAL SET (Invoice b IS Invoice) DO dateTime(b) <- currentDateTime();
+@defineDateTimeAggregation(Invoice);
 
 @defineNumberType(invoice);
 
-numberDate 'Описание' (Invoice i) = number(i) + ' от ' + dateTime(i);
+numberDate 'Описание' (Invoice i) = number(i) + ' от ' + dateTime(i) IN id;
 
 // customer
 customer = DATA Partner (Invoice);
@@ -87,6 +88,8 @@ CONSTRAINT item(InvoiceLine l) AND NOT canBeSold(item(l))
             CHECKED BY item 
             MESSAGE 'Номенклатура не предназначена для продажи';
 
+countProductLines 'Кол-во строк с товарами' (Invoice i) = GROUP SUM 1 IF invoice(InvoiceLine l) = i AND item(l) IS Product;
+
 uom = DATA Uom (InvoiceLine);
 nameUom 'Ед. изм.' (InvoiceLine l) = name(uom(l));
 WHEN LOCAL CHANGED(item(InvoiceLine l)) DO uom(l) <- uom(item(l)); 
@@ -98,7 +101,11 @@ quantity 'Кол-во' = DATA NUMERIC[16,3] (InvoiceLine) NONULL CHARWIDTH 7;
 weight 'Вес' (InvoiceLine l) = NUMERIC[16,3](quantity(l) * weight(item(l)));
 
 price 'Цена' = DATA NUMERIC[10,2] (InvoiceLine) NONULL;
-WHEN LOCAL SETCHANGED(item(InvoiceLine l)) AND NOT CHANGED(price(l)) DO price(l) <- salesPrice(item(l));
+
+defaultPrice = ABSTRACT CASE NUMERIC[10,2] (InvoiceLine);
+WHEN LOCAL SETCHANGED(item(InvoiceLine l)) AND NOT CHANGED(price(l)) DO price(l) <- defaultPrice(l);
+
+defaultPrice (InvoiceLine l) += WHEN salesPrice(item(l)) THEN salesPrice(item(l)); 
 
 @defineDocDiscount(invoice);
 
@@ -118,7 +125,7 @@ nameCompany 'Компания' (InvoiceLine l) = nameCompany(invoice(l));
 FORM invoiceLines 'Строки реализаций'
     OBJECTS l = InvoiceLine
     PROPERTIES(l) READONLY dateTime, number, index, nameItem, quantity, price
-    PROPERTIES(l) EDIT
+    PROPERTIES(l) NEWSESSION EDIT
     
     LIST InvoiceLine OBJECT l
 ;
@@ -140,6 +147,7 @@ FORM invoice 'Реализация'
 ;
 
 DESIGN invoice {
+    caption = (CONCAT ' ', 'Реализация', '№' + number(i), 'от ' + dateTime(i));
     OBJECTS {
         NEW header {
             type = CONTAINERH;
@@ -202,13 +210,15 @@ DESIGN invoice {
 
 @defineDocHistory(invoice, i, item, quantity);
 @defineDocSearch(invoice, item, quantity, 'Кол-во', i, canBeSold);
-@defineBarCodeSearch(invoice, i, item, quantity);
+@defineBarCodeSearch(invoice, i, l, item, quantity);
 
 @defineDocDiscountForm(invoice);
 
+background = ABSTRACT CASE COLOR (Invoice);
 FORM invoices 'Реализации'
-    OBJECTS i = Invoice
-    PROPERTIES(i) READONLY nameType, dateTime, number, nameCustomer, nameCompany,
+    OBJECTS i = Invoice BACKGROUND background(i)
+    PROPERTIES(i) READONLYIF isReadonly()
+                           nameType, dateTime, number, nameCustomer, nameCompany,
                            namePaymentTerms, dueDateTime, nameCustomerAccount, nameCompanyAccount,
                            customerReference, note         
     PROPERTIES(i) NEWSESSION NEW, EDIT, DELETE
@@ -216,8 +226,12 @@ FORM invoices 'Реализации'
     LIST Invoice OBJECT i
 ;
 
+@extendFormEditable(invoices);
+
+@defineDocObjectsForm(invoices, i, 'Реализации');
 @defineTaxForm(invoice, i);
-@defineStatusForm(invoice, i);
+@defineDocStatusForm(invoice, i);
+@defineDocLinesCount(invoice, i);
 
 NAVIGATOR {
     operations {
@@ -226,22 +240,28 @@ NAVIGATOR {
 }
 
 // copy
-copy 'Копировать' (Invoice i)  { 
+clone ABSTRACT LIST (Invoice, Invoice);
+clone (Invoice to, Invoice from) + {
+    type(to) <- type(from);
+    customer(to) <- customer(from);
+    note(to) <- note(from);
+    FOR invoice(InvoiceLine l) = from INLINE NEW nl = InvoiceLine DO {
+        invoice(nl) <- to;
+        item(nl) <- item(l);
+        
+        quantity(nl) <- quantity(l);
+        
+        price(nl) <- price(l);
+        discount(nl) <- discount(l);
+        discountPrice(nl) <- discountPrice(l);
+    }
+}
+
+copy 'Копировать' (Invoice from)  { 
     NEWSESSION {
-        NEW ni = Invoice {
-            customer(ni) <- customer(i);
-            note(ni) <- note(i);
-            FOR invoice(InvoiceLine l) = i INLINE NEW nl = InvoiceLine DO {
-                invoice(nl) <- ni;
-                item(nl) <- item(l);
-                
-                quantity(nl) <- quantity(l);
-                
-                price(nl) <- price(l);
-                discount(nl) <- discount(l);
-                discountPrice(nl) <- discountPrice(l);
-            }
-            SHOW invoice OBJECTS i = ni DOCKED;
+        NEW to = Invoice {
+            clone(to, from);
+            SHOW invoice OBJECTS i = to DOCKED;
         }
     }
 }

@@ -9,7 +9,7 @@ DESIGN options {
         NEW tabbedPane {
             type = TABBED;
             fill = 1;
-            NEW general {
+            NEW commons {
                 caption = 'Основные';
             }
         }
@@ -17,8 +17,10 @@ DESIGN options {
 }
 
 NAVIGATOR {
-    NEW FOLDER stock 'Склад' WINDOW toolbar { 
+    NEW FOLDER stock 'Склад' WINDOW toolbar IMAGE 'inventory.png' { 
         NEW FOLDER operations 'Операции' {
+        }
+        NEW FOLDER dashboards 'Процессы' {  
         }
         NEW FOLDER reporting 'Отчеты' {
         }

@@ -1,0 +1,6 @@
+MODULE InvoicingInventory;
+
+REQUIRE BillReceipt, BillReceiptFilter, BillReceiptSearch, BillReceiptInitial, CreditNoteReceipt,
+        InvoiceShipment, InvoiceShipmentFilter, InvoiceShipmentSearch, InvoiceShipmentInitial, RefundShipment;        
+        
+NAMESPACE Invoicing;

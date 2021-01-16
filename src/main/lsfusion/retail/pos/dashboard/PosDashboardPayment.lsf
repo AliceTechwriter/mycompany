@@ -8,17 +8,17 @@ amount 'Сумма' = DATA LOCAL NUMERIC[14,2] (PaymentMethod);
 paymentAmount() = GROUP SUM amount(PaymentMethod pm); 
 notCashPaymentAmount() = GROUP SUM amount(PaymentMethod pm) IF NOT isCash(pm); 
 
-change (Invoice i) = paymentAmount() (-) totalAmount(i); 
+change (Invoice i) = paymentAmount() (-) amount(i); 
 
 FORM posPayment 'Оплата'
     OBJECTS i = Invoice PANEL
-    PROPERTIES nameCustomer(i), totalAmount(i), change 'Сдача' = change(i) IF change(i) > 0
+    PROPERTIES nameCustomer(i), amount(i), change 'Сдача' = change(i) IF change(i) > 0
     
     OBJECTS pm = PaymentMethod
     PROPERTIES(pm) name READONLY, amount 
     FILTERS NOT disabled(pos(session(i)), pm)
     
-    PROPERTIES overFormOk = formOk() READONLYIF change(i) < 0 OR notCashPaymentAmount() > totalAmount(i) 
+    PROPERTIES overFormOk = formOk() READONLYIF (change(i) < 0 OR notCashPaymentAmount() > amount(i)) AND paymentAmount() 
 ;
 
 DESIGN posPayment {
@@ -26,25 +26,26 @@ DESIGN posPayment {
         NEW top {
             alignment = STRETCH;
             MOVE PROPERTY(nameCustomer(i)) { fontSize = 24; alignment = STRETCH; changeKey = 'F5'; }
-            MOVE PROPERTY(totalAmount(i)) { fontSize = 24; alignment = STRETCH; }
         }
-        NEW center {
+        NEW pane {
+            type = CONTAINERH;
             fill = 1;
-            MOVE BOX(pm) {
-                GRID(pm) {
-                    defaultComponent = TRUE;
-                    PROPERTY(name(pm)) { fontSize = 24; focusable = FALSE; }
-                    PROPERTY(amount(pm)) { fontSize = 24; }
+            NEW center {
+                fill = 1;
+                MOVE PROPERTY(amount(i)) { fontSize = 24; alignment = STRETCH; }
+                MOVE BOX(pm) {
+                    GRID(pm) {
+                        defaultComponent = TRUE;
+                        PROPERTY(name(pm)) { fontSize = 24; focusable = FALSE; }
+                        PROPERTY(amount(pm)) { fontSize = 24; }
+                    }
+                    REMOVE TOOLBARBOX(pm);
                 }
-                REMOVE TOOLBARBOX(pm);
+                MOVE PROPERTY(change) { fontSize = 24; alignment = STRETCH; }
             }
-        }
-        NEW bottom {
-            alignment = STRETCH;
-            MOVE PROPERTY(change) { fontSize = 24; alignment = STRETCH; }
+            NEW right { alignment = STRETCH; }
         }
     }
-    
     TOOLBARRIGHT {
         REMOVE PROPERTY(formRefresh());
         REMOVE PROPERTY(formOk());
@@ -57,27 +58,32 @@ EXTEND FORM posPayment
     EVENTS ON INIT { ACTIVATE PROPERTY posPayment.amount(pm); }
 ;
 
+@defineKeyboardDecimal(amount, posPayment, PaymentMethod, pm, right, 48);
+
 afterPosPayment ABSTRACT LIST (Invoice);
 
 posPayment 'Оплата' (Session s, Invoice i) {
     amount(PaymentMethod pm) <- NULL;
-    DIALOG posPayment OBJECTS i = i NOMANAGESESSION DO {
-        FOR am = (amount(PaymentMethod pm) (-) (change(i) IF isCash(pm))) DO NEW p = IncomingPayment {
+    DIALOG posPayment OBJECTS i = i, pm INPUT NOMANAGESESSION DO {
+        IF NOT paymentAmount() THEN amount(pm) <- amount(i);
+        FOR am = (amount(PaymentMethod ppm) (-) (change(i) IF isCash(ppm))) DO NEW p = IncomingPayment {
             done(p) <- TRUE;
             
-            paymentMethod(p, i) <- pm;
-            type(p) <- incomingPaymentType(pm);
+            paymentMethod(p, i) <- ppm;
+            type(p) <- incomingPaymentType(ppm);
             
             company(p) <- company(pos(session(i)));
-            companyAccount(p) <- account(pos(session(i)), pm);
+            companyAccount(p) <- account(pos(session(i)), ppm);
             
             partner(p) <- customer(i);
             
             amount(p) <- am;
             paid(p, i) <- am;
         }
+        ready(i) <- TRUE;
         APPLY;
         IF canceled() THEN {
+            ready(i) <- NULL;
             DELETE IncomingPayment p WHERE SET(p IS IncomingPayment);
         } ELSE {
             createInvoice(s);
@@ -87,7 +93,7 @@ posPayment 'Оплата' (Session s, Invoice i) {
 } CHANGEKEY 'ctrl ENTER';
 
 EXTEND FORM posDashboard
-    PROPERTIES(s, i) posPayment READONLYIF NOT totalAmount(i)
+    PROPERTIES(s, i) posPayment READONLYIF NOT amount(i)
 ;
 
 DESIGN posDashboard {

@@ -1,7 +1,7 @@
 MODULE SalesOrder;
 
-REQUIRE Time, MetaNumerator, Individual, Company,
-        MetaTax, TaxItem, BarCode,
+REQUIRE Time, MetaNumerator, Employee, Company, DateUtils,
+        MetaTax, TaxItem, BarCode, LocationEmployee,
         SalesSettings, PartnerSales, ItemSales, SalesOrderType,
         PaymentTermsSales, SalesPricelistValue, Doc;  
 
@@ -9,7 +9,7 @@ NAMESPACE Sales;
 
 CLASS Order 'Заказ покупателя';
 
-@defineStatus(order, 'заказа покупателя');
+@defineDocStatus(order, 'заказа покупателя');
 
 // type
 type 'Тип' = DATA OrderType (Order) NONULL;
@@ -19,10 +19,11 @@ WHEN LOCAL SET(Order o IS Order) AND NOT CHANGED(type(o)) DO type(o) <- defaultO
 
 dateTime 'Дата' = DATA DATETIME (Order);
 dateTime(Order o) <- currentDateTime() WHEN SET(o IS Order);
+@defineDateTimeAggregation(Order);
 
 @defineNumberType(order);
 
-numberDate 'Описание' (Order o) = number(o) + ' от ' + dateTime(o);
+numberDate 'Описание' (Order o) = number(o) + ' от ' + dateTime(o) IN id;
 
 // customer
 customer 'Заказчик' = DATA Partner (Order) NONULL;
@@ -43,6 +44,11 @@ namePaymentTerms 'Условия оплаты' (Order o)= name(paymentTerms(o));
 
 WHEN LOCAL CHANGED(customer(Order o)) AND NOT CHANGED(paymentTerms(o)) DO paymentTerms(o) <- customerPaymentTerms(customer(o)); 
 
+// company
+company 'Компания' = DATA Company (Order) NONULL;
+nameCompany 'Компания' (Order o) = name(company(o));
+WHEN LOCAL SET(Order o IS Order) AND NOT CHANGED(company(o)) DO company(o) <- defaultCompany();
+
 // Shipping information
 scheduledDateTime 'Срок поставки' = DATA DATETIME (Order);
 scheduledDateTime(Order o) <- currentDateTime() WHEN SET(o IS Order);
@@ -56,10 +62,12 @@ location = DATA Location (Order) PREREAD;
 nameLocation 'Место хранения' (Order o) = name(location(o));
 
 // Sales information
-representative 'Наш представитель' = DATA Individual (Order);
-nameRepresentative 'Наш представитель' (Order o)= name(representative(o));
+representative 'Наш представитель' = DATA Employee (Order);
+nameRepresentative 'Наш представитель' (Order o)= MasterData.name(representative(o));
 
-CONSTRAINT representative(Order o) AND NOT type(legalEntity(representative(o))) = PartnerType.company 
+representative(Order o) <- currentUser() IF currentUser() IS Employee WHEN SET(o IS Order);
+
+CONSTRAINT representative(Order o) AND NOT legalEntity(representative(o)) = company(o) 
     CHECKED BY representative MESSAGE 'Должен быть наш работник';
 
 customerReference 'Входящий номер заказчика' = DATA STRING[30] (Order);
@@ -74,6 +82,7 @@ item = DATA Item (OrderLine) NONULL;
 nameItem 'Номенклатура' (OrderLine l) = name(item(l));
 idBarCodeItem 'Штрихкод' (OrderLine l) = idBarCode(item(l));
 idItem 'Код' (OrderLine l) = id(item(l));
+isService 'Услуга' (OrderLine l) = item(l) IS Service;
 
 CONSTRAINT item(OrderLine l) AND NOT canBeSold(item(l))
             CHECKED BY item[OrderLine] 
@@ -81,20 +90,24 @@ CONSTRAINT item(OrderLine l) AND NOT canBeSold(item(l))
 
 description 'Описание' = DATA ISTRING (OrderLine) CHARWIDTH 20;
 
-uom = DATA Uom (OrderLine);
+uom (OrderLine l) = uom(item(l));
 nameUom 'Ед. изм.' (OrderLine l) = name(uom(l));
-WHEN LOCAL CHANGED(item(OrderLine l)) DO uom(l) <- uom(item(l));
 
 quantity 'Количество' = DATA NUMERIC[16,3] (OrderLine);
 
 price 'Цена' = DATA NUMERIC[10,2] (OrderLine);
+
+defaultPrice = ABSTRACT CASE NUMERIC[10,2] (OrderLine);
+WHEN LOCAL SETCHANGED(item(OrderLine l)) AND NOT CHANGED(price(l)) DO price(l) <- defaultPrice(l);
+
+defaultPrice (OrderLine l) += WHEN salesPrice(item(l)) THEN salesPrice(item(l)); 
+
 @defineDocDiscount(order);
 
 @defineTaxCalc(order, o, sales, resultPrice);
 taxIncluded (OrderLine l) += taxIncluded(type(order(l)));
 
 WHEN LOCAL CHANGED(item(OrderLine ol)) DO {
-    uom(ol) <- uom(item(ol));
     in(ol, Tax t) <- salesIn(item(ol), t); 
 }
 
@@ -110,15 +123,15 @@ nameCustomer 'Заказчик' (OrderLine l) = nameCustomer(order(l));
 
 FORM order 'Заказ покупателя'
     OBJECTS o = Order PANEL
-    PROPERTIES(o) nameType, dateTime, number, nameCustomer, nameLocation,
+    PROPERTIES(o) nameType, dateTime, number, nameCustomer, nameCompany, nameLocation,
                   validity,
                   namePaymentTerms, addressCustomer,
                   scheduledDateTime, deliveryAddress, 
                   nameRepresentative, customerReference
-    PROPERTIES(o) READONLY untaxedAmount, totalTax, totalAmount
+    PROPERTIES(o) READONLY untaxedAmount, taxAmount, amount
                  
     OBJECTS l = OrderLine
-    PROPERTIES(l) index, nameItem, description, nameUom, idBarCodeItem, idItem, quantity, price, subtotal, taxes ON CHANGE changeTax(l)
+    PROPERTIES(l) index, nameItem, description, nameUom, idBarCodeItem, idItem, quantity, price, untaxedAmount, taxes ON CHANGE changeTax(l)
     PROPERTIES(l) NEW, DELETE
     FILTERS order(l) = o
     
@@ -126,6 +139,7 @@ FORM order 'Заказ покупателя'
 ;      
 
 DESIGN order {
+    caption = (CONCAT ' ', 'Заказ покупателя', '№' + number(o), 'от ' + dateTime(o));
     OBJECTS {
         NEW header {
             alignment = STRETCH;   
@@ -137,6 +151,7 @@ DESIGN order {
             }
             NEW headerRight {
                 MOVE PROPERTY(nameCustomer(o)) { notNull = TRUE; } 
+                MOVE PROPERTY(nameCompany(o)) { notNull = TRUE; }
                 MOVE PROPERTY(nameLocation(o));               
             }    
             NEW relatedDoc {
@@ -147,8 +162,11 @@ DESIGN order {
         NEW details {
             fill = 7;
             type = TABBED;
-            MOVE BOX(l) {
-                PROPERTY(nameItem(l)) { notNull = TRUE; }
+            NEW lines {
+                caption = 'Строки';
+                MOVE BOX(l) {
+                    PROPERTY(nameItem(l)) { notNull = TRUE; }
+                }
             }
             NEW otherInformation {
                 caption = 'Прочая информация';
@@ -186,8 +204,8 @@ DESIGN order {
                 caption = 'Итого';
                 type = CONTAINERH;
                 MOVE PROPERTY(untaxedAmount(o));
-                MOVE PROPERTY(totalTax(o));
-                MOVE PROPERTY(totalAmount(o));                     
+                MOVE PROPERTY(taxAmount(o));
+                MOVE PROPERTY(amount(o));                     
             }
         }
     }            
@@ -196,19 +214,26 @@ DESIGN order {
 @defineDocHistory(order, o, item, quantity);
 @defineDocDiscountForm(order);
 
+background = ABSTRACT CASE COLOR (Order);
 FORM orders 'Заказы покупателей'
-     OBJECTS o = Order
-     PROPERTIES(o) READONLY nameType, number, nameCustomer,
+     OBJECTS o = Order BACKGROUND background(o)
+     PROPERTIES(o) READONLYIF isReadonly()
+                            nameType, dateTime, number, nameCustomer,
                             validity,
                             namePaymentTerms, addressCustomer,
                             scheduledDateTime, deliveryAddress, nameLocation, 
                             nameRepresentative, customerReference,
-                            untaxedAmount, totalTax, totalAmount
+                            untaxedAmount, taxAmount, amount
                             
      PROPERTIES(o) NEWSESSION NEW, EDIT, DELETE 
 ;
 
-@defineStatusForm(order, o);
+@extendFormEditable(orders);
+
+@defineDocObjectsForm(orders, o, 'Заказы покупателей');
+@defineDocStatusForm(order, o);
+@defineDocLinesCount(order, o);
+@defineDocLocationAccess(order, o);
 
 NAVIGATOR {
     operations {
@@ -216,33 +241,37 @@ NAVIGATOR {
     }
 }
 
-copyOrder 'Копировать' (Order o)  { 
+clone (Order to, Order from) {
+    type(to) <- type(from);
+    customer(to) <- customer(from);
+    paymentTerms(to) <- paymentTerms(from);
+    company(to) <- company(from);
+    location(to) <- location(from);
+    representative(to) <- representative(from); 
+    FOR order(OrderLine l) = from INLINE NEW nl = OrderLine DO {
+        order(nl) <- to;
+        item(nl) <- item(l);
+        description(nl) <- description(l);
+        
+        quantity(nl) <- quantity(l);
+        
+        price(nl) <- price(l);
+    }
+}
+
+copy 'Копировать' (Order from)  { 
     NEWSESSION {
-        NEW no = Order {
-            type(no) <- type(o);
-            customer(no) <- customer(o);
-            paymentTerms(no) <- paymentTerms(o);
-            location(no) <- location(o);
-            representative(no) <- representative(o); 
-            FOR order(OrderLine l) = o INLINE NEW nl = OrderLine DO {
-                order(nl) <- no;
-                item(nl) <- item(l);
-                description(nl) <- description(l);
-                uom(nl) <- uom(l); 
-                
-                quantity(nl) <- quantity(l);
-                
-                price(nl) <- price(l);
-            }
-            SHOW order OBJECTS o = no DOCKED;
+        NEW to = Order {
+            clone(from, to);
+            SHOW order OBJECTS o = to DOCKED;
         }
     }
 }
 
-EXTEND FORM order PROPERTIES copyOrder(o);
+EXTEND FORM order PROPERTIES copy(o);
 
 DESIGN order {
     secondaryActions {
-        MOVE PROPERTY(copyOrder(o));
+        MOVE PROPERTY(copy(o));
     }
 }
