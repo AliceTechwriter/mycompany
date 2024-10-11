@@ -4,24 +4,29 @@ REQUIRE ManufacturingSettings, Location;
 
 NAMESPACE Manufacturing;
 
-CLASS ManufacturingOrderType 'Тип производственного заказа';
+CLASS ManufacturingOrderType 'Manufacturing order type';
 
-name 'Название' = DATA STRING[50] (ManufacturingOrderType) NONULL IN id;
-id 'Код'= DATA STRING[20] (ManufacturingOrderType);
+name '{Name}' = DATA STRING[50] (ManufacturingOrderType) NONULL IN id;
 
-materialsLocation 'Списывать из' = DATA Location (ManufacturingOrderType);
-nameMaterialsLocation 'Списывать из' (ManufacturingOrderType t) = name(materialsLocation(t)); 
+id '{ID}'= DATA STRING[20] (ManufacturingOrderType);
+manufacturingOrderType = GROUP AGGR ManufacturingOrderType t BY id(t);
 
-unbuild 'Разборка' = DATA BOOLEAN (ManufacturingOrderType);
+numerator 'Numerator' = DATA Numerator (ManufacturingOrderType);
+nameNumerator 'Numerator' (ManufacturingOrderType o) = name(numerator(o));
 
-FORM manufacturingOrderType 'Тип производственного заказа'
+materialsLocation 'Materials location' = DATA Location (ManufacturingOrderType);
+nameMaterialsLocation 'Materials location' (ManufacturingOrderType t) = name(materialsLocation(t)); 
+
+unbuild 'Unbuild' = DATA BOOLEAN (ManufacturingOrderType);
+
+FORM manufacturingOrderType 'Manufacturing order type'
     OBJECTS o = ManufacturingOrderType PANEL 
-    PROPERTIES(o) name, id, unbuild, nameMaterialsLocation
+    PROPERTIES(o) name, id, nameNumerator, unbuild, nameMaterialsLocation
      
     EDIT ManufacturingOrderType OBJECT o;
 ;
 
-FORM manufacturingOrderTypes 'Типы производственных заказов'
+FORM manufacturingOrderTypes 'Types of production orders'
     OBJECTS o = ManufacturingOrderType
     PROPERTIES(o) READONLY name, id, unbuild
     
@@ -40,7 +45,7 @@ DESIGN options {
     }
 }
 
-countManufacturingOrderTypes 'Кол-во типов' () = GROUP SUM 1 IF r IS ManufacturingOrderType; 
+countManufacturingOrderTypes 'Number of types' () = GROUP SUM 1 IF r IS ManufacturingOrderType; 
 firstManufacturingOrderType () = GROUP LAST ManufacturingOrderType t ORDER DESC t WHERE t IS ManufacturingOrderType;
 
 defaultManufacturingOrderType () = firstManufacturingOrderType()

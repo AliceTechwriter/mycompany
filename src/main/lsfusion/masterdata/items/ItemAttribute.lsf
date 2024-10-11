@@ -4,60 +4,57 @@ REQUIRE Item;
 
 NAMESPACE MasterData;
 
-CLASS ItemAttribute 'Атрибут';
+CLASS ItemAttribute 'Attribute';
 
-id 'Код' = DATA STRING[50] (ItemAttribute) IN id CHARWIDTH 8;
+id '{ID}' = DATA STRING[50] (ItemAttribute) IN id CHARWIDTH 8;
 itemAttribute (STRING[50] id) = GROUP AGGR ItemAttribute i BY id(i);
 
 index '№' (ItemAttribute a) = PARTITION SUM 1 ORDER a AS ItemAttribute MATERIALIZED CHARWIDTH 2;
 itemAttribute (INTEGER i) = GROUP LAST ItemAttribute a ORDER a BY index(a);  
 
-//обязателен для заполнения
-nonull 'Обязателен для заполнения' = DATA BOOLEAN (ItemAttribute);
+nonull 'Required' = DATA BOOLEAN (ItemAttribute);
 
-name 'Название' = DATA ISTRING[50] (ItemAttribute) IN id NONULL;
+name '{Name}' = DATA ISTRING[50] (ItemAttribute) IN id NONULL;
 
-// задание доступных категорий для атрибутов
-set 'Вкл.' = DATA BOOLEAN (ItemAttribute, Category);
+// available categories
+set 'Incl.' = DATA BOOLEAN (ItemAttribute, Category);
 
-// с учетом групп
+// recursive
 valid (ItemAttribute a, Category c) = GROUP LAST set(a, Category cc) ORDER DESC level(c, cc); 
 
-// список возможных значений для атрибута
-CLASS ItemAttributeValue 'Значение';
+// available values
+CLASS ItemAttributeValue 'Value';
 
-itemAttribute 'Атрибут' = DATA ItemAttribute (ItemAttributeValue) NONULL DELETE;
-nameAttribute 'Атрибут' (ItemAttributeValue v) = name(itemAttribute(v));
+itemAttribute 'Attribute' = DATA ItemAttribute (ItemAttributeValue) NONULL DELETE;
+nameAttribute 'Attribute' (ItemAttributeValue v) = name(itemAttribute(v));
 
-value 'Значение' = DATA STRING (ItemAttributeValue) NONULL IN id;
+value 'Value' = DATA STRING (ItemAttributeValue) NONULL IN id;
 value (ItemAttribute a, STRING v) = GROUP AGGR ItemAttributeValue av BY itemAttribute(av), value(av);
 
-// форма по вводу значений
-FORM value 'Значение'
+FORM value 'Value'
     OBJECTS v = ItemAttributeValue PANEL 
     PROPERTIES(v) value 
 ;
 
-newValue 'Значение' (ItemAttribute a) {
+newValue 'Value' (ItemAttribute a) {
     NEWSESSION {
         NEW v = ItemAttributeValue {
             itemAttribute(v) <- a;
-            SHOW value OBJECTS v = v;
+            DIALOG value OBJECTS v = v DOCKED DO seek(v);
         }
     }
 } IMAGE 'add.png' CHANGEKEY 'INSERT';
 
-// задание доступных категорий для конкретных значений
-set 'Вкл.' = DATA BOOLEAN (ItemAttributeValue, Category);
+// available values
+set 'Incl.' = DATA BOOLEAN (ItemAttributeValue, Category);
 valid (ItemAttributeValue v, Category c) = GROUP LAST set(v, Category cc) ORDER DESC level(c, cc); 
 
-countCategory 'Кол-во заданных категорий' (ItemAttributeValue v) = GROUP SUM 1 IF set(v, Category c) MATERIALIZED;
+countCategory 'Number of preset categories' (ItemAttributeValue v) = GROUP SUM 1 IF set(v, Category c) MATERIALIZED;
 
 CONSTRAINT set(ItemAttributeValue v, Category c) AND NOT valid(itemAttribute(v), c)
-    MESSAGE 'Категория значения должна совпадать с категорией атрибута';
+    MESSAGE 'The value category must match the attribute category';
 
-// диалог выбора значений по атрибуту
-FORM values 'Значения'
+FORM values 'Values'
     OBJECTS a = ItemAttribute PANEL, c = Category PANEL 
 
     OBJECTS v = ItemAttributeValue
@@ -68,7 +65,7 @@ FORM values 'Значения'
             valid(v, c) OR NOT countCategory(v)
 ;
 
-FORM childValues 'Значения'
+FORM childValues 'Values'
     OBJECTS a = ItemAttribute PANEL, c = Category PANEL 
 
     OBJECTS v = ItemAttributeValue
@@ -79,8 +76,7 @@ FORM childValues 'Значения'
             valid(v, c) OR (GROUP SUM 1 IF set(v, Category cc) AND level(cc, c)) OR NOT countCategory(v)
 ;
 
-// формы ввода атрибутов
-FORM attributes 'Атрибуты'
+FORM attributes 'Attributes'
     OBJECTS a = ItemAttribute
     PROPERTIES(a) READONLY index, id, name, nonull
     PROPERTIES(a) NEWSESSION NEW, EDIT, DELETE 
@@ -88,13 +84,15 @@ FORM attributes 'Атрибуты'
     LIST ItemAttribute OBJECT a
 ;
 
-FORM attribute 'Атрибут'
+FORM attribute 'Attribute'
     OBJECTS a = ItemAttribute PANEL
     PROPERTIES(a) name, id, nonull
     
     TREE categories c = Category PARENT parent(c) 
     PROPERTIES name(c) READONLY, set(a, c) BACKGROUND (GROUP SUM 1 IF set(a, Category cc) AND level(cc, c))
     ORDERS name(c)
+    FILTERGROUP activeCategory
+        FILTER '{Active}' active(c) DEFAULT
            
     OBJECTS v = ItemAttributeValue
     PROPERTIES(v) value, NEW, DELETE
@@ -104,6 +102,8 @@ FORM attribute 'Атрибут'
     PROPERTIES name(cc) READONLY, set(v, cc) BACKGROUND (GROUP SUM 1 IF set(v, Category ccc) AND level(ccc, cc))
     FILTERS (GROUP LAST set(a, Category pcc) ORDER level(cc, pcc)) OR (GROUP SUM 1 IF set(a, Category ccc) AND level(ccc, cc)) 
     ORDERS name(cc)
+    FILTERGROUP activeCategoryC
+        FILTER '{Active}' active(cc) DEFAULT
     
     EDIT ItemAttribute OBJECT a
 ;
@@ -112,29 +112,29 @@ DESIGN attribute {
     OBJECTS {
         NEW pane {
             fill = 1;
-            type = SPLITH;
+            horizontal = TRUE;
             NEW attribute {
                 fill = 1;
                 NEW name {
-                    caption = 'Опции атрибута';
+                    caption = 'Settings';
                     MOVE PROPERTY(name(a));
                     MOVE PROPERTY(id(a));
                     MOVE PROPERTY(nonull(a));
                 }
             }
             NEW details {
-                type = TABBED;
+                tabbed = TRUE;
                 fill = 5;
                 MOVE BOX(TREE categories) {
-                    caption = 'Категории атрибута';
+                    caption = 'Categories';
                 }
                 NEW values {
-                    type = CONTAINERH;
-                    caption = 'Значения';
+                    horizontal = TRUE;
+                    caption = 'Values';
                     fill = 2;
                     MOVE BOX(v);
                     MOVE BOX(TREE cat) {
-                        caption = 'Категории значений';
+                        caption = 'Value categories';
                         fill = 1;
                     }    
                 }
@@ -149,30 +149,30 @@ NAVIGATOR {
     }
 }
 
-// Задание значения атрибута для товара
-attribute = DATA ItemAttributeValue (Item, ItemAttribute);
-value 'Значение' (Item i, ItemAttribute a) = value(attribute(i, a));
+// attribute value
+attribute = DATA ItemAttributeValue (Item, ItemAttribute) INDEXED;
+value 'Value' (Item i, ItemAttribute a) = value(attribute(i, a));
 
 CONSTRAINT nonull(ItemAttribute a) AND NOT value(Item i, a) AND valid(a, category(i)) AND NOT SET(nonull(a))
-    MESSAGE 'Атрибут обязателен для заполнения';
+    MESSAGE 'The attribute is required';
 
 CONSTRAINT attribute(Item i, ItemAttribute a) AND (countCategory(attribute(i, a)) AND NOT valid(attribute(i, a), category(i)))
     CHECKED BY attribute[Item, ItemAttribute]
-    MESSAGE 'Категория номенклатуры должна совпадать с категорией значения';
+    MESSAGE 'The item category must match the value category';
 
 CONSTRAINT attribute(Item i, ItemAttribute a) AND NOT itemAttribute(attribute(i, a)) = a
     CHECKED BY attribute[Item, ItemAttribute]
-    MESSAGE 'Выбрано недопустимое значение для данной номенклатуры';
+    MESSAGE 'An invalid value was selected for this item';
     
 CONSTRAINT DROPPED(ItemAttributeValue v IS ItemAttributeValue) AND PREV(attribute(Item i, ItemAttribute a)) = v
-    MESSAGE 'Нельзя удалять значение, которое используется';
+    MESSAGE 'Can\'t delete value that is in use';
 
 readonly = ABSTRACT BOOLEAN (Item, ItemAttribute);
 
 EXTEND FORM item
     OBJECTS a = ItemAttribute
     PROPERTIES name(a) READONLY, 
-               value(i, a) ON CHANGE { DIALOG values OBJECTS a = a, c = category(i), v = attribute(i, a) CHANGE; } 
+               value(i, a) ON CHANGE { DIALOG values OBJECTS a = a, c = category(i), v = attribute(i, a) CHANGE LIST value(v); } 
                            READONLYIF readonly(i, a) BACKGROUND
                                 IF readonly(i, a) THEN RGB(223,223,223) ELSE
                                                       (RGB(245,184,184) IF NOT value(i, a) AND nonull(a))
@@ -181,28 +181,28 @@ EXTEND FORM item
 
 DESIGN item {
     tabs {
-        NEW attributes FIRST {
-            caption = 'Атрибуты';
-            MOVE BOX(a);
-        }
+        MOVE BOX(a) { caption = 'Attributes'; }
     }
 }
 
-// Формирование наименования для товара
-sequence 'Последовательность' = DATA INTEGER (ItemAttribute);
-prefix 'Префикс' = DATA STRING[15] (ItemAttribute);
-suffix 'Суффикс' = DATA STRING[15] (ItemAttribute);
+// full value
+beforeName 'Before name' = DATA BOOLEAN (ItemAttribute);
+sequence 'Sequence' = DATA INTEGER (ItemAttribute);
+prefix 'Prefix' = DATA STRING[15] (ItemAttribute);
+suffix 'Suffix' = DATA STRING[15] (ItemAttribute);
 
-fullValue 'Полное значение' (Item i, ItemAttribute a) = (CONCAT '', prefix(a), value(i, a), suffix(a)) IF value(i, a);
-suffixName(Item i) += STRING(GROUP CONCAT fullValue(i, ItemAttribute a) IF sequence(a), ' ' ORDER sequence(a), a);
+fullValue 'Full value' (Item i, ItemAttribute a) = (CONCAT '', prefix(a), value(i, a), suffix(a)) IF value(i, a);
+prefixName(Item i) += STRING(GROUP CONCAT fullValue(i, ItemAttribute a) IF sequence(a) AND beforeName(a), ' ' ORDER sequence(a), a);
+suffixName(Item i) += STRING(GROUP CONCAT fullValue(i, ItemAttribute a) IF sequence(a) AND NOT beforeName(a), ' ' ORDER sequence(a), a);
 
 EXTEND FORM attributes PROPERTIES READONLY sequence(a);
-EXTEND FORM attribute PROPERTIES(a) sequence, prefix, suffix;
+EXTEND FORM attribute PROPERTIES(a) beforeName, sequence, prefix, suffix;
 
 DESIGN attribute {
     attribute {
         NEW itemValues {
-            caption = 'Формирование наименования';
+            caption = 'Formation of the name';
+            MOVE PROPERTY(beforeName(a));
             MOVE PROPERTY(sequence(a));
             MOVE PROPERTY(prefix(a));
             MOVE PROPERTY(suffix(a));
@@ -210,9 +210,11 @@ DESIGN attribute {
     }
 }
 
-// Фильтр по атрибутам на форме номенклатуры
+// filters
 attributeFilter = DATA LOCAL ItemAttributeValue (ItemAttribute);
-value 'Значение' (ItemAttribute a) = value(attributeFilter(a));
+value 'Value' (ItemAttribute a) = value(attributeFilter(a));
+
+notMatchAttributeFilter(Item i) = GROUP SUM 1 IF attributeFilter(ItemAttribute a) AND NOT attributeFilter(a) = attribute(i, a);  
 
 CONSTRAINT attributeFilter(ItemAttribute a) AND NOT itemAttribute(attributeFilter(a)) = a
     CHECKED BY attributeFilter MESSAGE '';
@@ -220,8 +222,8 @@ CONSTRAINT attributeFilter(ItemAttribute a) AND NOT itemAttribute(attributeFilte
 META defineItemAttributeForm(form, obj, gobj)
     EXTEND FORM form
         OBJECTS ia = ItemAttribute BEFORE gobj
-        PROPERTIES name(ia) READONLY, value(ia) ON CHANGE { DIALOG childValues OBJECTS a = ia, c = c, v = attributeFilter(ia) CHANGE; }
-        FILTERS attributeFilter(ia) = attribute(obj, ia) OR NOT attributeFilter(ia)
+        PROPERTIES name(ia) READONLY, value(ia) ON CHANGE { DIALOG childValues OBJECTS a = ia, c = c, v = attributeFilter(ia) CHANGE LIST value(v); }
+        FILTERS NOT notMatchAttributeFilter(obj)
         FILTERS GROUP SUM 1 IF set(ia, Category cc) AND (level(cc, c) OR level(c, cc)) 
     ;
 END
@@ -233,14 +235,17 @@ END
 @defineItemAttributeForm(items, i);
 DESIGN items {
     tabs {
-        NEW filters {
-            caption = 'Фильтры';
-            MOVE BOX(ia);
+        NEW filterAttributes {
+            fill = 1;
+            caption = 'Filters';
+            MOVE BOX(ia) { 
+                caption = ''; 
+                GRID(ia) { height = 100; } 
+            }
         }
     }
 }
 
-// копирование атрибутов при копировании товара
 copy(Item n, Item o) + {
    FOR attribute(o, ItemAttribute a) DO {
        attribute(n, a) <- attribute(o, a);

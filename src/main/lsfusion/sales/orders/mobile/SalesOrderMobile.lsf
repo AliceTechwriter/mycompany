@@ -1,49 +1,47 @@
 MODULE SalesOrderMobile;
 
 REQUIRE Input, Reflection, 
-        Mobile, PartnerMobile, ItemMobile, CategoryMobile, LocationMobile, 
+        Mobile, CategoryMobile, 
         SalesOrderLocked, SalesOrderDiscount, SalesOrderPack;
 
 NAMESPACE Sales;
 
 // order
-@defineChangeInput(customer, Order, Partner, dialogPartnersMobile, p);
-@defineChangeInput(location, Order, Location, dialogLocationsMobile, l);
-@defineChangeInput(item, OrderLine, Item, dialogItemsMobile, i);
-
-FORM orderMobile 'Заказ мобильный'
+FORM orderMobile 'Mobile order'
     OBJECTS o = Order PANEL
     PROPERTIES(o) nameType, dateTime, number, 
-                  nameCustomer ON CHANGE changeCustomer(o), 
-                  nameLocation ON CHANGE changeLocation(o),
+                  nameCustomer, 
+                  nameLocation,
                   untaxedAmount, amount
 
     PROPERTIES(o) confirm SHOWIF (status(o) = OrderStatus.sent OR status(o) = OrderStatus.draft), confirmed 
     
     OBJECTS l = OrderLine
-    PROPERTIES(l) nameItem ON CHANGE changeItem(l) 
-    PROPERTIES(l) 'Кол-во' = quantity, price, NEW, DELETE
+    PROPERTIES(l) nameItem 
+    PROPERTIES(l) 'Qty' = quantity, price, NEW, DELETE
     PROPERTIES(l) PANEL SHOWIF pack(type(o))
-                  'Мест' = packQuantity ON CHANGE changePackQuantity(l),
-                  'В месте' = packRatio READONLY
+                  'Packs' = packQuantity ON CHANGE changePackQuantity(l),
+                  'Packing' = packRatio READONLY
     PROPERTIES(l) PANEL nameSalesDiscount, '' = discount, '' = discountPrice
-    PROPERTIES(l) PANEL READONLY idItem, idBarCodeItem,
-                                 nameUom, taxes, 'Сумма' = amount
+    PROPERTIES(l) PANEL READONLY idItem, idBarCodeItem, referenceItem,
+                                 nameUom, taxes, '{Amount}' = amount
     FILTERS order(l) = o
 ;
 
 DESIGN orderMobile {
-    caption = (CONCAT ' ', 'Заказ', '№' + number(o));
+    caption = badged('{Order}', number(o));
     
     OBJECTS {
+        class = '';
+        border = FALSE;
         NEW pane {
-            type = TABBED;
+            tabbed = TRUE;
             fill = 1;
             NEW params {
-                caption = 'Параметры';
+                caption = 'Parameters';
                 MOVE PROPERTY(nameType(o)) { alignment = STRETCH; }
                 NEW id {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                     alignment = STRETCH;
                     MOVE PROPERTY(dateTime(o));
                     MOVE PROPERTY(number(o));
@@ -53,14 +51,14 @@ DESIGN orderMobile {
                 
                 NEW amount {
                     flex = 1;
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                     alignment = STRETCH;
                     MOVE PROPERTY(untaxedAmount(o));
                     MOVE PROPERTY(amount(o));
                 }
                 
                 NEW actions {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                     alignment = STRETCH;
                     
                     MOVE PROPERTY(confirm(o));
@@ -70,33 +68,34 @@ DESIGN orderMobile {
                 MOVE TOOLBARBOX;
             }
             NEW lines {
-                caption = CONCAT ' ', 'Строки', '(' + countOrderLine(o) + ')';
+                caption = badged('Lines', countOrderLine(o));
+                MOVE FILTERS(l);
                 MOVE GRID(l) {
-                    headerHeight = 24;
                     PROPERTY(quantity(l)) { charWidth = 5; }
                 }
                 MOVE TOOLBARBOX(l);
                 NEW pack {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                     alignment = STRETCH;
                     MOVE PROPERTY(packQuantity(l));
                     MOVE PROPERTY(packRatio(l));
                 }
                 NEW discount {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                     alignment = STRETCH;
                     MOVE PROPERTY(nameSalesDiscount(l));
                     MOVE PROPERTY(discount(l));
                     MOVE PROPERTY(discountPrice(l));
                 }
                 NEW item {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                     alignment = STRETCH;
                     MOVE PROPERTY(idItem(l));
                     MOVE PROPERTY(idBarCodeItem(l));
+                    MOVE PROPERTY(referenceItem(l));
                 }
                 NEW misc {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                     alignment = STRETCH;
                     MOVE PROPERTY(nameUom(l));
                     MOVE PROPERTY(taxes(l));
@@ -112,49 +111,50 @@ DESIGN orderMobile {
 
 // orders
 
-newMobile 'Добавить' () {
+newMobile 'Add to' () {
     NEWSESSION {
         NEW o = Order {
-            SHOW orderMobile OBJECTS o = o DOCKED;
+            DIALOG orderMobile OBJECTS o = o DOCKED DO seek(o);
         }
     }
 } IMAGE 'add.png';
 
-editMobile 'Редактировать' (Order o) {
+editMobile 'Edit' (Order o) {
     NEWSESSION {
         SHOW orderMobile OBJECTS o = o DOCKED;
     }
 } IMAGE 'edit.png' CHANGEMOUSE 'DBLCLK';
 
 customerFilter = DATA LOCAL Partner ();
-nameCustomerFilter 'Заказчик' = name(customerFilter());
-@defineChangeInput(customerFilter, Partner, dialogPartnersMobile, p);    
-clearCustomerFilter '' () { customerFilter() <- NULL; } IMAGE 'delete.png';
+nameCustomerFilter 'Customer' = name(customerFilter());
 
-FORM ordersMobile 'Мобильный заказ'
+FORM ordersMobile 'Orders'
     OBJECTS o = Order
-    PROPERTIES(o) READONLY date, nameStatus BACKGROUND colorStatus(o), number, nameCustomer
-    PROPERTIES newMobile() DRAW o TOOLBAR, editMobile(o) TOOLBAR, DELETE(o) NEWSESSION
+    PROPERTIES(o) READONLY number, date, nameCustomer, imagedNameStatus BACKGROUND colorStatus(o)
+    PROPERTIES '' = newMobile() DRAW o TOOLBAR, '' = editMobile(o) TOOLBAR, '' = DELETE(o) NEWSESSION
 
     FILTERGROUP unlocked
-        FILTER 'Открыт' NOT locked(o) DEFAULT    
+        FILTER 'Opened' NOT locked(o) DEFAULT    
 
-    PROPERTIES() nameCustomerFilter ON CHANGE changeCustomerFilter(), clearCustomerFilter
+    PROPERTIES() nameCustomerFilter
     FILTERS customer(o) = customerFilter() OR NOT customerFilter()
 ;
 
 DESIGN ordersMobile {
-    caption = 'Заказы';
     OBJECTS {
+        class = '';
+        border = FALSE;
         NEW filters {
-            type = CONTAINERH;
+            horizontal = TRUE;
             MOVE PROPERTY(nameCustomerFilter());
-            MOVE PROPERTY(clearCustomerFilter());
             MOVE FILTERGROUPS(o);
             MOVE PROPERTY(formRefresh());
         }
+        MOVE FILTERS(o);
         MOVE GRID(o);
-        MOVE TOOLBARSYSTEM(o);
+        MOVE TOOLBARSYSTEM(o) {
+            showSettings = FALSE;
+        }
         MOVE TOOLBAR(o);
         REMOVE TOOLBARBOX;
     }
@@ -162,7 +162,7 @@ DESIGN ordersMobile {
 
 NAVIGATOR {
     dashboards {
-        NEW ordersMobile;
+        NEW 'Mobile order' = ordersMobile;
     }
 }
 

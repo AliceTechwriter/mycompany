@@ -4,9 +4,9 @@ REQUIRE Adjustment, ProductLot, AdjustmentSearch, AdjustmentInv, InvLedgerLot;
 
 NAMESPACE Inventory;
 
-@defineDocLot (adjustment, product, theoreticalQuantity, done, ' (теоретическое)');
+@defineDocLot (adjustment, product, theoreticalQuantity, done, ' (theoretical)');
 
-@defineDocLot (adjustment, product, realQuantity, done, ' (фактическое)');
+@defineDocLot (adjustment, product, realQuantity, done, ' (real)');
 
 fillTheoreticalQuantity(AdjustmentLine al) + {
     theoreticalQuantity(al, Lot l) <- prevOnHandB(location(al), l, dateTime(adjustment(al))) IF product(l) = product(al);
@@ -15,7 +15,8 @@ WHEN LOCAL (SETCHANGED (location(AdjustmentLine al)) OR SETCHANGED(product(al)))
            AND NOT CHANGED(theoreticalQuantity(al)) DO
     fillTheoreticalQuantity(al); 
 
-WHEN LOCAL CHANGED(theoreticalQuantity(AdjustmentLine al, Lot l)) AND NOT CHANGED(realQuantity(al, l)) DO 
+WHEN LOCAL CHANGED(theoreticalQuantity(AdjustmentLine al, Lot l)) AND NOT CHANGED(realQuantity(al, l)) 
+           AND status(adjustment(al)) = AdjustmentStatus.draft DO 
     realQuantity(al, l) <- theoreticalQuantity(al, l);
         
 background (AdjustmentLine al, Lot l) = CASE WHEN theoreticalQuantity(al, l) < realQuantity(al, l) THEN RGB(152,251,152)
@@ -23,7 +24,7 @@ background (AdjustmentLine al, Lot l) = CASE WHEN theoreticalQuantity(al, l) < r
 
 @defineDocBarCodeLot (adjustment, product, realQuantity);
 
-beforeProcessLotBarCode(Adjustment a, STRING s) + {
+beforeProcessAdjustmentLineLotBarCode(Adjustment a, STRING s) + {
     IF NOT lot(s) THEN {
         NEW l = Lot {
             id(l) <- STRING[100](s);
@@ -51,13 +52,13 @@ EXTEND FORM adjustment
 DESIGN adjustment {
     linesTab {
         MOVE BOX(lot){
-            caption = 'Партии';
+            caption = 'Lots';
             showIf = useLot();
         }
     }
 }
 
-afterProcessLotBarCode(Adjustment a, STRING s) + {
+afterProcessAdjustmentLineLotBarCode(Adjustment a, STRING s) + {
     SEEK adjustment.lot = lot(s);
     ACTIVATE PROPERTY adjustment.realQuantity(l, lot); 
 }

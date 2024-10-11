@@ -4,7 +4,7 @@ REQUIRE ReceiptDone, Scrap;
 
 NAMESPACE Inventory;
 
-scrap 'Списать' (Receipt r) {
+scrap 'Scrap' (Receipt r) {
     NEWSESSION {
         NEW s = Scrap {
             dateTime(s) <- currentDateTime();
@@ -24,6 +24,6 @@ EXTEND FORM receipt
 
 DESIGN receipt {
     secondaryActions {
-        MOVE PROPERTY (scrap(r));
+        MOVE PROPERTY (scrap(r)) { valueClass = 'btn-warning'; }
     }
 }

@@ -4,13 +4,13 @@ REQUIRE Account;
 
 NAMESPACE Invoicing;
 
-CLASS CashAccount 'Касса' : Account;
+CLASS CashAccount 'Cash account' : Account;
 
-name 'Наименование' = DATA ISTRING[100] (CashAccount);
+name '{Name}' = DATA ISTRING[100] (CashAccount);
 name (CashAccount a) += name(a); 
 
 EXTEND CLASS AccountType {
-    cash 'Касса'
+    cash 'Cash account'
 }
 
 type(Account a) += WHEN a IS CashAccount THEN AccountType.cash;
@@ -25,19 +25,19 @@ DESIGN account {
     }
 }
 
-newCashAccount 'Касса' () {
+newCashAccount 'Cash account' () {
     NEWSESSION {
         NEW c = CashAccount { 
-            SHOW account OBJECTS a = c;  
+            DIALOG account OBJECTS a = c DOCKED DO seek(c);  
         }
     }
 } IMAGE 'add.png';
 
-newCashAccount 'Касса' (Partner p) {
+newCashAccount 'Cash account' (Partner p) {
     NESTEDSESSION {
         NEW c = CashAccount {
             holder(c) <- p;
-            SHOW account OBJECTS a = c;  
+            DIALOG account OBJECTS a = c DOCKED DO seek(c);  
         }
     }
 } IMAGE 'add.png';
@@ -52,7 +52,7 @@ EXTEND FORM partner
     PROPERTIES newCashAccount(p) DRAW a TOOLBAR
 ;
 
-FORM cashAccounts 'Кассы'
+FORM cashAccounts 'Cash accounts'
     OBJECTS a = CashAccount
     PROPERTIES(a) READONLY name, nameAccountHolder, note
     
@@ -60,5 +60,5 @@ FORM cashAccounts 'Кассы'
 ;
 
 countCashAccount (Partner p) = GROUP SUM 1 IF CashAccount a IS CashAccount AND holder(a) = p; 
-calcDefaultCashAccount (Partner p) = GROUP LAST CashAccount a WHERE holder(a) = p IF countCashAccount(p) = 1;
+calcDefaultCashAccount (Partner p) = GROUP LAST CashAccount a ORDER a WHERE holder(a) = p IF countCashAccount(p) = 1;
 defaultCashAccount (Partner p) = OVERRIDE defaultAccount(p) AS CashAccount, calcDefaultCashAccount(p);

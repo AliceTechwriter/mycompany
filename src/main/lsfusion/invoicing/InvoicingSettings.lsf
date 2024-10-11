@@ -2,25 +2,30 @@ MODULE InvoicingSettings;
 
 NAMESPACE Invoicing;
 
-FORM options 'Настройки'
+FORM options 'Settings'
 ;
 
 DESIGN options {
     OBJECTS {
         NEW tabbedPane {
-            type = TABBED;
+            tabbed = TRUE;
             fill = 1;
+            NEW commons {
+                caption = 'Main';
+            }
         }
     }
 }
 
 NAVIGATOR {
-    NEW FOLDER invoicing 'Расчеты' WINDOW toolbar IMAGE 'invoicing.png' {
-        NEW FOLDER operations 'Операции' {
+    NEW FOLDER invoicing 'Invoicing' WINDOW toolbar IMAGE 'invoicing.png' {
+        NEW FOLDER operations 'Operations' {
         }
-        NEW FOLDER reporting 'Отчеты' { 
+        NEW FOLDER dashboards 'Processes' {
         }
-        NEW FOLDER settings 'Настройка' {
+        NEW FOLDER reporting 'Reporting' { 
+        }
+        NEW FOLDER settings 'Configuration' {
             NEW options;        
         }
     }

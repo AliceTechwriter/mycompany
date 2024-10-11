@@ -4,23 +4,23 @@ REQUIRE Bank;
 
 NAMESPACE Invoicing;
 
-bankExport 'Экспорт банков' () {
+bankExport 'Bank export' () {
     NEWSESSION {
         LOCAL f = EXCELFILE ();
-        EXPORT XLSX HEADER FROM 'БИК' = id(Bank b), 'Наименование' = name(b),
-                                'Код страны' = id(country(b)),  'Город' = city(b),
-                                 'Адрес' = address(b), 'Телефон' = phone(b) TO f;   
+        EXPORT XLSX HEADER FROM '{ID}' = id(Bank b), '{Name}' = name(b),
+                                'CountryID' = id(country(b)), 'City' = city(b),
+                                'Address' = address(b), 'Phone' = phone(b) TO f;   
         open(f());
     }
 }
 
-bankImport 'Импорт банков' () {
+bankImport 'Bank import' () {
     LOCAL id = STRING[11] (INTEGER);
-    LOCAL name = ISTRING[30] (INTEGER);
+    LOCAL name = ISTRING[100] (INTEGER);
     LOCAL idCountry = STRING[3] (INTEGER);
     LOCAL city = ISTRING[30] (INTEGER);
-    LOCAL address = ISTRING[50] (INTEGER);
-    LOCAL phone = ISTRING[30] (INTEGER);
+    LOCAL address = ISTRING[100] (INTEGER);
+    LOCAL phone = ISTRING[100] (INTEGER);
     
     INPUT f = EXCELFILE DO {
         NEWSESSION {
@@ -36,7 +36,7 @@ bankImport 'Импорт банков' () {
                 phone(b) <- phone(i);
             }
             APPLY;
-            MESSAGE 'Импорт завершен';
+            MESSAGE 'Import completed';
         }
     }
 }    
@@ -48,8 +48,8 @@ EXTEND FORM migrationData
 DESIGN migrationData {
     commons {
         NEW bank {
-            type = CONTAINERH;
-            caption = 'Банки';
+            horizontal = TRUE;
+            caption = 'Banks';
             MOVE PROPERTY(bankImport());
             MOVE PROPERTY(bankExport());
         }

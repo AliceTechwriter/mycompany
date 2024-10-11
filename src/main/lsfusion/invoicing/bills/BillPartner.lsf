@@ -6,16 +6,13 @@ NAMESPACE Invoicing;
 
 EXTEND FORM partner
     OBJECTS b = Bill
-    PROPERTIES(b) READONLY nameStatus, number, dateTime, dueDateTime, note, untaxedAmount, taxAmount, amount, paid
+    PROPERTIES(b) READONLY number, dateTime, imagedNameStatus, nameType, dueDateTime, note, untaxedAmount, taxAmount, amount, paid
     PROPERTIES(b) NEWSESSION EDIT
     FILTERS vendor(b) = p
 ;
 
 DESIGN partner {
     tabs {
-        NEW bills {
-            caption = 'Поступления';
-            MOVE BOX(b);
-        }
+        MOVE BOX(b) { caption = 'Bills'; }
     }
 }

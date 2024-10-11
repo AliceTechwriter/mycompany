@@ -6,7 +6,7 @@ NAMESPACE Sales;
 
 EXTEND FORM partner
     OBJECTS sl = Order
-    PROPERTIES(sl) READONLY nameStatus BACKGROUND colorStatus(sl), number, dateTime, scheduledDateTime, nameCustomer, nameRepresentative
+    PROPERTIES(sl) READONLY number, dateTime, imagedNameStatus BACKGROUND colorStatus(sl), scheduledDateTime, nameRepresentative
     PROPERTIES(sl) READONLY untaxedAmount, taxAmount, amount
     PROPERTIES(sl) NEWSESSION EDIT
     FILTERS customer(sl) = p
@@ -14,9 +14,6 @@ EXTEND FORM partner
 
 DESIGN partner {
     tabs {
-        NEW sOrders {
-            caption = 'Заказы покупателям';
-            MOVE BOX(sl);
-        }
+        MOVE BOX(sl) { caption = 'Sales orders'; }
     }
 }

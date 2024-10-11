@@ -4,31 +4,50 @@ REQUIRE ShipmentDone, ShipmentCost, DocTemplate;
 
 NAMESPACE Inventory;
 
-addressCustomer 'Адрес' (Shipment s) = linesAddress(customer(s)); 
-phoneCustomer 'Телефон' (Shipment s) = phone(customer(s));
+nameCompany (Shipment s) = name(company(s));
+fullNameCompany (Shipment s) = fullName(company(s));
 
-addressLocation 'Адрес' (Shipment s)  = linesAddress(location(s));
-addressToLocation 'Адрес' (Shipment s)  = linesAddress(toLocation(s));
+addressLinesCompany (Shipment i) = addressLines(company(i));
+addressCsvCompany (Shipment i) = addressCsv(company(i));
+phoneCompany (Shipment i) = phone(company(i));
+emailCompany (Shipment i) = email(company(i));
+websiteCompany (Shipment i) = website(company(i));
 
-note 'Примечание' = ABSTRACT TEXT (ShipmentLine);
+fullNameCustomer (Shipment s) = fullName(customer(s)); 
+
+addressLinesCustomer (Shipment s) = addressLines(customer(s)); 
+phoneCustomer (Shipment s) = phone(customer(s));
+
+addressLinesLocation (Shipment s)  = addressLines(location(s));
+addressCsvLocation (Shipment s)  = addressCsv(location(s));
+
+addressLinesToLocation (Shipment s)  = addressLines(toLocation(s));
+addressCsvToLocation (Shipment s)  = addressCsv(toLocation(s));
+
+note 'Note' = ABSTRACT TEXT (ShipmentLine);
 
 costPrice (ShipmentLine l) = price(outCostLedger(l));
 costAmount (ShipmentLine l) = amount(outCostLedger(l));
 
-FORM printShipment 'Задание на отгрузку'
+FORM printShipment 'Shipment task'
     OBJECTS o = Shipment PANEL 
     PROPERTIES(o) scheduledDateTime, executionDateTime, number,
-                  nameCustomer, addressCustomer, phoneCustomer,
-                  nameLocation, addressLocation,
-                  nameToLocation, addressToLocation
+                  nameCompany, fullNameCompany,
+                  addressLinesCompany, addressCsvCompany, phoneCompany, 
+                  emailCompany, websiteCompany,
+                  nameCustomer, fullNameCustomer,
+                  addressLinesCustomer, addressCsvCustomer, deliveryAddress,
+                  phoneCustomer,
+                  nameLocation, addressLinesLocation, addressCsvLocation,
+                  nameToLocation, addressLinesToLocation, addressCsvToLocation
     
     OBJECTS l = ShipmentLine
-    PROPERTIES(l) index, nameProduct, initialDemand, 
+    PROPERTIES(l) index, nameProduct, idProduct, nameUom, idBarCodeProduct, referenceProduct, initialDemand, 
                   done, weightDone,
                   costPrice, costAmount, 
                   note
     FILTERS shipment(l) = o
 ;
 
-@defineDocTemplateType(shipment, 'отгрузки');
-@defineDocTemplateTypeForm(shipment, s);
+@defineDocTemplateType(shipment, 'Shipment template');
+@defineDocTemplateTypeForm(shipment, s, Inventory);

@@ -6,20 +6,20 @@
         <repository>
             <id>lsfusion</id>
             <name>lsFusion Public Repository</name>
-            <url>http://repo.lsfusion.org</url>
+            <url>https://repo.lsfusion.org</url>
         </repository>
     </repositories>
 
     <parent>
         <groupId>lsfusion.platform.build</groupId>
         <artifactId>logics</artifactId>
-        <version>5.0-SNAPSHOT</version>
+        <version>7.0-SNAPSHOT</version>
         <relativePath>../platform/build/logics/pom.xml</relativePath>
     </parent>
 
     <groupId>lsfusion.solutions</groupId>
     <artifactId>mycompany</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>7.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>MyCompany</name>
 
@@ -29,44 +29,13 @@
             <artifactId>bcpkix-jdk15on</artifactId>
             <version>1.62</version>
         </dependency>
-
-        <dependency>
-            <groupId>ru.cryptopro</groupId>
-            <artifactId>jcp</artifactId>
-            <version>2.0.40502</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>ru.cryptopro</groupId>
-            <artifactId>jcprevcheck</artifactId>
-            <version>2.0.40502</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>ru.cryptopro</groupId>
-            <artifactId>jcryptop</artifactId>
-            <version>2.0.40502</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>ru.cryptopro</groupId>
-            <artifactId>cades</artifactId>
-            <version>2.0.40502</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>ru.cryptopro</groupId>
-            <artifactId>ades-core</artifactId>
-            <version>2.0.40502</version>
-            <scope>provided</scope>
-        </dependency>
     </dependencies>
 
     <profiles>
         <profile>
             <id>assemble</id>
             <properties>
-                <platform.assemble.version>5.0-SNAPSHOT</platform.assemble.version>
+                <platform.assemble.version>6.0-SNAPSHOT</platform.assemble.version>
             </properties>
             <dependencies>
                 <dependency>

@@ -4,27 +4,30 @@ REQUIRE Partner;
 
 NAMESPACE MasterData;
 
-latitude 'Широта'= DATA NUMERIC[11,6] (Partner);
-longitude 'Долгота' = DATA NUMERIC[11,6] (Partner);
+latitude 'Latitude'= DATA NUMERIC[11,6] (Partner);
+longitude 'Longitude' = DATA NUMERIC[11,6] (Partner);
 
 EXTEND FORM partner
     PROPERTIES(p) latitude, longitude
     
     OBJECTS pg = Partner MAP
-    PROPERTIES(pg) READONLY name, latitude, longitude
+    PROPERTIES(pg) name READONLY, latitude, longitude
     FILTERS pg = p
 ;
 
 DESIGN partner {
     tabs {
         NEW geo {
-            caption = 'Координаты';
+            caption = 'Coordinates';
             NEW coordinates {
-                type = CONTAINERH;
+                horizontal = TRUE;
                 MOVE PROPERTY(latitude(p));
                 MOVE PROPERTY(longitude(p));
             }
-            MOVE BOX(pg) { caption = ''; }
+            MOVE BOX(pg) { 
+                height = 500; 
+                caption = ''; 
+            }
         }
     }
 }

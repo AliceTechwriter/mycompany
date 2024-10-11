@@ -6,17 +6,17 @@ NAMESPACE Purchase;
 
 attribute(OrderLine l, ItemAttribute a) = value(attribute(item(l), a));
 
-FORM purchaseOrderReport 'Отчет по заказам'
+FORM purchaseOrderReport 'Order report'
     OBJECTS a = ItemAttribute
 
-    OBJECTS report = (o = Order, l = OrderLine) PIVOT
-    PROPERTIES(o) READONLY nameType, dateTime, nameStatus, number, vendorReference, 
-                           nameVendor, 
-                           nameLocation, scheduledDateTime,
+    OBJECTS o = (o = Order, l = OrderLine) PIVOT
+    PROPERTIES(o) READONLY number, dateTime, nameVendor,
+                           imagedNameStatus, nameType, vendorReference, 
+                           scheduledDateTime, nameLocation,
                            namePaymentTerms, nameRepresentative 
-    PROPERTIES(l) READONLY nameItem, idItem 
-    PROPERTIES READONLY 'Группа 1' = level1(item(l)), 'Группа 2' = level2(item(l)), 'Группа 3' = level3(item(l)), 'Группа 4' = level4(item(l)), 
-                        'Группа полная' = canonicalNameCategory(item(l)) 
+    PROPERTIES(l) READONLY nameItem, idItem, referenceItem 
+    PROPERTIES READONLY 'Category 1' = level1(item(l)), 'Category 2' = level2(item(l)), 'Category 3' = level3(item(l)), 'Category 4' = level4(item(l)), 
+                        'Canonical group' = canonicalNameCategory(item(l)) 
     PROPERTIES READONLY attribute(l, a) COLUMNS (a) HEADER name(a)
     PROPERTIES(l) READONLY description, nameUom, price, taxes
     PROPERTIES(l) READONLY MEASURE
@@ -24,6 +24,15 @@ FORM purchaseOrderReport 'Отчет по заказам'
     FILTERS order(l) = o,
             accessGranted(location(o)) OR NOT location(o)
 ;
+
+DESIGN purchaseOrderReport {
+    OBJECTS {
+        NEW filters FIRST { 
+            caption = 'Filters';
+            horizontal = TRUE;
+        }
+    }
+}
 
 @defineDateTimeAggregationForm(purchaseOrderReport, o);
 @defineDateFilterForm(purchaseOrderReport, o);

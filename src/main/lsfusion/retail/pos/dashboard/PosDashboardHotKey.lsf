@@ -4,7 +4,7 @@ REQUIRE PosDashboardSearch;
 
 NAMESPACE Retail;
 
-hotKeyName 'Быстрый товар (название)' = DATA ISTRING[30] (Item);
+hotKeyName 'Hot key (name)' = DATA ISTRING[30] (Item);
 
 EXTEND FORM item
     PROPERTIES(i) hotKeyName
@@ -25,8 +25,8 @@ EXTEND FORM posDashboard
 DESIGN posDashboard {
     OBJECTS {
         NEW hotKeys {
-            type = CONTAINERH;
-            MOVE PROPERTY(selectPosSearch(i, hi)) { fontSize = 16; focusable = FALSE; };
+            horizontal = TRUE;
+            MOVE PROPERTY(selectPosSearch(i, hi)) { changeMouse = ''; fontSize = 16; focusable = FALSE; valueClass = 'btn-outline-primary'; };
         }
     }
 }

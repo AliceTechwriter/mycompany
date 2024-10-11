@@ -1,19 +1,22 @@
 MODULE IncomingPaymentOutgoing;
 
-REQUIRE IncomingPaymentCanceled, OutgoingPaymentCanceled;
+REQUIRE IncomingPaymentCanceled, OutgoingPaymentCanceled, 
+        ExchangeRate, OutgoingPaymentCurrency, IncomingPaymentCurrency;
 
 NAMESPACE Invoicing;
 
 // type
 incomingPaymentType = DATA IncomingPaymentType (OutgoingPaymentType);
-nameIncomingPaymentType 'Тип входящего платежа' (OutgoingPaymentType t) = name(incomingPaymentType(t));
+nameIncomingPaymentType 'Incoming payment type' (OutgoingPaymentType t) = name(incomingPaymentType(t));
 
 EXTEND FORM outgoingPaymentType
     PROPERTIES(o) nameIncomingPaymentType
 ;
 
 // outgoing
-@defineDocRelation(outgoingPayment, incomingPayment, 'Исходящий платеж', 'Входящий платеж', p, p);
+@defineDocRelation(outgoingPayment, incomingPayment, 'Outgoing payment', 'Incoming payment', p, p);
+
+rate1 (IncomingPayment ip, OutgoingPayment op) = rate1(currency(op), currency(ip), date(op));
 
 incomingPaymentCreated = DATA LOCAL IncomingPayment ();
 newIncomingPayment (OutgoingPayment op) {
@@ -30,7 +33,7 @@ newIncomingPayment (OutgoingPayment op) {
         partnerAccount(ip) <- companyAccount(op);
         companyAccount(ip) <- partnerAccount(op);
         
-        amount(ip) <- amount(op);
+        amount(ip) <- NUMERIC[14,2](amount(op) / rate1(ip, op));
 
         note(ip) <- note(op);
         reference(ip) <- reference(op);
@@ -39,7 +42,7 @@ newIncomingPayment (OutgoingPayment op) {
     }
 }
 
-createIncomingPayment 'Создать входящий платеж' (OutgoingPayment op) {
+createIncomingPayment 'Create an incoming payment' (OutgoingPayment op) {
     APPLY;
     IF canceled() THEN RETURN;
     
@@ -55,12 +58,12 @@ EXTEND FORM outgoingPayment
 
 DESIGN outgoingPayment {
     primaryActions {
-        MOVE PROPERTY(createIncomingPayment(p)) { fontStyle = 'bold'; }
+        MOVE PROPERTY(createIncomingPayment(p)) { valueClass = 'btn-primary'; }
     }
 }
 
 // auto create
-autoCreateIncomingPayment 'Автоматически создавать входящий платеж' = DATA BOOLEAN (OutgoingPaymentType);
+autoCreateIncomingPayment 'Automatically create incoming payment' = DATA BOOLEAN (OutgoingPaymentType);
 EXTEND FORM outgoingPaymentType PROPERTIES(o) autoCreateIncomingPayment;
 
 WHEN SET(active(OutgoingPayment op)) AND NOT countIncomingPayment(op) AND autoCreateIncomingPayment(type(op)) DO
@@ -87,7 +90,7 @@ WHEN CHANGED(partnerAccount(outgoingPayment(IncomingPayment ip))) AND autoCreate
     companyAccount(ip) <- partnerAccount(outgoingPayment(ip));
     
 WHEN CHANGED(amount(outgoingPayment(IncomingPayment ip))) AND autoCreateIncomingPayment(type(outgoingPayment(ip))) DO 
-    amount(ip) <- amount(outgoingPayment(ip));
+    amount(ip) <- NUMERIC[14,2](amount(outgoingPayment(ip)) / rate1(ip, outgoingPayment(ip)));
 
 WHEN CHANGED(note(outgoingPayment(IncomingPayment ip))) AND autoCreateIncomingPayment(type(outgoingPayment(ip))) DO 
     note(ip) <- note(outgoingPayment(ip));

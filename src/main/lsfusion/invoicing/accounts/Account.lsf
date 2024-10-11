@@ -1,32 +1,38 @@
 MODULE Account;
 
-REQUIRE InvoicingSettings, Partner;
+REQUIRE InvoicingSettings, Partner, Currency, Icon;
 
 NAMESPACE Invoicing;
 
-CLASS ABSTRACT Account 'Счет';
+CLASS ABSTRACT Account 'Account';
 
-holder 'Держатель счета' = DATA Partner (Account) NONULL;
-nameAccountHolder 'Держатель счета' (Account a) = name(holder(a)) IN id;
+holder 'Account holder' = DATA Partner (Account) NONULL;
+nameAccountHolder 'Account holder' (Account a) = name(holder(a)) IN id;
+
+countAccount (Partner p) = GROUP SUM 1 IF holder(Account a) = p;  
 
 dataDefaultAccount = DATA Account (Partner);
 calcDefaultAccount (Partner p) = GROUP LAST Account a ORDER DESC a WHERE holder(a) = p;
 
 defaultAccount (Partner p) = OVERRIDE dataDefaultAccount(p), calcDefaultAccount(p);
-default 'По умолчанию' (Account a) = defaultAccount(holder(a)) = a CHARWIDTH 10;
+default 'Default' (Account a) = defaultAccount(holder(a)) = a CHARWIDTH 10;
 
-note 'Примечание' = DATA ISTRING (Account);
+// currency
+currency = DATA Currency (Account);
+nameCurrency 'Currency' (Account a) = name(currency(a));
 
-name 'Наименование' = ABSTRACT ISTRING (Account) CHARWIDTH 20 IN id;
+note 'Note' = DATA ISTRING (Account);
 
-allowNegative 'Разрешить отрицательный остаток' = DATA BOOLEAN (Account);
+name '{Name}' = ABSTRACT ISTRING (Account) CHARWIDTH 20 IN id;
 
-CLASS AccountType 'Тип счета';
+allowNegative 'Allow negative balance' = DATA BOOLEAN (Account);
 
-name 'Имя' (AccountType o) = staticCaption(o) IF o IS AccountType CHARWIDTH 15;
+CLASS AccountType 'Account type';
+
+name '{First_name}' (AccountType o) = staticCaption(o) IF o IS AccountType CHARWIDTH 15;
 
 type  = ABSTRACT CASE AccountType (Account);
-nameType 'Тип счета' (Account a) = name(type(a));
+nameType 'Account type' (Account a) = name(type(a));
 
 changeDefault (Account a) {
     INPUT b = BOOLEAN DO {
@@ -35,10 +41,10 @@ changeDefault (Account a) {
     }
 }
 
-FORM account 'Счет'
+FORM account 'Account'
     OBJECTS a = Account PANEL 
     PROPERTIES(a) nameType, default ON CHANGE changeDefault(a), 
-                  allowNegative, nameAccountHolder, note
+                  allowNegative, nameAccountHolder, nameCurrency, note
     
     EDIT Account OBJECT a
 ;
@@ -46,19 +52,24 @@ FORM account 'Счет'
 DESIGN account {
     OBJECTS {
         NEW params {
-            type = CONTAINERH;
+            horizontal = TRUE;
             MOVE PROPERTY(nameType(a));
             MOVE PROPERTY(default(a));
             MOVE PROPERTY(allowNegative(a));
         }
-        MOVE PROPERTY(nameAccountHolder(a)) { notNull = TRUE; }
+        NEW extraParams {
+            horizontal = TRUE;
+            alignment = STRETCH;
+            MOVE PROPERTY(nameAccountHolder(a)) { notNull = TRUE; }
+            MOVE PROPERTY(nameCurrency(a));
+        }
         MOVE PROPERTY(note(a));
     }
 }
 
-FORM accounts 'Счета'
+FORM accounts 'Accounts'
     OBJECTS a = Account
-    PROPERTIES(a) READONLY nameType, name, nameAccountHolder, note, default
+    PROPERTIES(a) READONLY nameType, name, nameAccountHolder, nameCurrency, note, default
     PROPERTIES(a) NEWSESSION EDIT, DELETE
     
     LIST Account OBJECT a
@@ -73,18 +84,18 @@ NAVIGATOR {
     }
 }
 
-newAccount 'Счет' (Partner p) {
+newAccount 'Account' (Partner p) {
     NESTEDSESSION {
         NEW a = Account {
             holder(a) <- p;
-            SHOW account OBJECTS a = a;  
+            DIALOG account OBJECTS a = a DOCKED DO seek(a);  
         }
     }
 } IMAGE 'add.png';
 
 EXTEND FORM partner
     OBJECTS a = Account
-    PROPERTIES(a) READONLY nameType, name, note, default
+    PROPERTIES(a) READONLY nameType, name, nameCurrency, note, default
     PROPERTIES(a) NESTEDSESSION EDIT, DELETE 
 //    PROPERTIES newAccount(p) DRAW a TOOLBAR
         
@@ -93,9 +104,6 @@ EXTEND FORM partner
 
 DESIGN partner {
     tabs {
-        NEW accounts FIRST {
-            caption = 'Счета';
-            MOVE BOX(a);
-        }
+        MOVE BOX(a) { caption = badged('Accounts', countAccount(p)); }
     }
 }

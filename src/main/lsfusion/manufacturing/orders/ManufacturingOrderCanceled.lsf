@@ -5,14 +5,14 @@ REQUIRE ManufacturingOrderDone;
 NAMESPACE Manufacturing;
 
 EXTEND CLASS ManufacturingOrderStatus {
-    canceled 'Отменен'
+    canceled 'Cancelled'
 }
 
-canceled 'Отменен' = DATA BOOLEAN (ManufacturingOrder);
-active 'Активен' (ManufacturingOrder o) = done(o) AND NOT canceled(o);
+canceled 'Cancelled' = DATA BOOLEAN (ManufacturingOrder);
+active '{Active}' (ManufacturingOrder o) = done(o) AND NOT canceled(o);
 started (ManufacturingOrder o) = NOT status(o) = ManufacturingOrderStatus.draft AND NOT canceled(o);
 
-cancel 'Отменить' (ManufacturingOrder m) {
+cancel 'Cancel' (ManufacturingOrder m) {
     APPLY; 
        IF canceled() THEN RETURN;
            
@@ -24,7 +24,7 @@ cancel 'Отменить' (ManufacturingOrder m) {
 }
 
 status(ManufacturingOrder m) += WHEN canceled(m) THEN ManufacturingOrderStatus.canceled;
-colorStatus(ManufacturingOrder m) += WHEN status(m) = ManufacturingOrderStatus.canceled THEN RGB(181,195,247);
+color(ManufacturingOrderStatus m) += WHEN m = ManufacturingOrderStatus.canceled THEN RGB(181,195,247);
 
 EXTEND FORM manufacturingOrder
     PROPERTIES(o) cancel SHOWIF NOT (status(o) = ManufacturingOrderStatus.draft OR status(o) = ManufacturingOrderStatus.canceled), 
@@ -33,9 +33,12 @@ EXTEND FORM manufacturingOrder
 
 DESIGN manufacturingOrder {
     secondaryActions {
-        MOVE PROPERTY(cancel(o));
+        MOVE PROPERTY(cancel(o)) { valueClass = 'btn-danger'; }
     }             
-    status {
-        MOVE PROPERTY(canceled(o));                               
+    statusGroup {
+        MOVE PROPERTY(canceled(o)) {
+            valueClass = 'btn-check';
+            captionClass = 'btn btn-outline-primary btn-arrow-right';
+        }                               
     }    
 }

@@ -1,53 +1,54 @@
 MODULE Item;
 
-REQUIRE Category, Uom, MetaNumerator;
+REQUIRE Category, Uom, MetaNumerator, Icon;
 
 PRIORITY System;
 
 NAMESPACE MasterData;
 
-CLASS ABSTRACT Item 'Номенклатура';
-class 'Вид' (Item i) = objectClassName(i) IF i IS Item CHARWIDTH 6;
+CLASS ABSTRACT Item '{Item}';
+class 'Type' (Item i) = objectClassName(i) IF i IS Item CHARWIDTH 6;
 
-@defineID(item, 'Номенклатура', 'НМ', 6);
+@defineID(item, '{Items}', 'NM', 6);
 
-dataName 'Наименование' = DATA ISTRING[200] (Item) IN id NONULL CHARWIDTH 20;
-prefixName 'Префикс' = ABSTRACT STRING (Item);
-suffixName 'Суффикс' = ABSTRACT STRING (Item);
+dataName '{Name}' = DATA ISTRING[200] (Item) IN id NONULL CHARWIDTH 20;
+prefixName 'Prefix' = ABSTRACT STRING (Item);
+suffixName 'Suffix' = ABSTRACT STRING (Item);
 
-name 'Наименование (полное)' (Item i) = CONCAT ' ', prefixName(i), dataName(i), suffixName(i) CHARWIDTH 30 MATERIALIZED INDEXED;
+name 'Name (full)' (Item i) = CONCAT ' ', prefixName(i), dataName(i), suffixName(i) CHARWIDTH 30 MATERIALIZED INDEXED;
 
-reference 'Артикул' = DATA STRING[50] (Item) CHARWIDTH 10;
+reference 'Reference' = DATA STRING[50] (Item) CHARWIDTH 10 INDEXED;
+itemReference (STRING[50] ref) = GROUP MIN Item i BY reference(i); 
 
-description 'Описание' = DATA TEXT (Item);
+description 'Description' = DATA TEXT (Item);
 
-category 'Категория' = DATA Category (Item) NONULL INDEXED;
-idCategory 'Код категории' (Item i) = id(category(i));
-nameCategory 'Категория' (Item i) = name(category(i));
-canonicalNameCategory 'Категория (полная)' (Item i) = canonicalName(category(i));
+category 'Category' = DATA Category (Item) NONULL INDEXED;
+idCategory 'Category code' (Item i) = id(category(i));
+nameCategory 'Category' (Item i) = name(category(i));
+canonicalNameCategory 'Category (full)' (Item i) = canonicalName(category(i));
 
 // uom
 uom = DATA Uom (Item);
-idUom 'Код ед. изм.' (Item i) = id(uom(i));
-nameUom 'Ед. изм.' (Item i) = name(uom(i));
+idUom 'UoM code' (Item i) = id(uom(i));
+nameUom 'UoM' (Item i) = name(uom(i));
 
-CONSTRAINT DROPPED(Uom u IS Uom) AND PREV(uom(Item i)) MESSAGE 'Нельзя удалить единицу измерения на которую ссылается номенклатура'; 
+CONSTRAINT DROPPED(Uom u IS Uom) AND PREV(uom(Item i) = u) MESSAGE 'You cannot delete the unit of measure referenced by the item'; 
 
 dataDefaultUom = DATA Uom (Category);
-nameDataDefaultUom 'Единица измерения' (Category c) = name(dataDefaultUom(c));
+nameDataDefaultUom 'Unit of measure' (Category c) = name(dataDefaultUom(c));
 EXTEND FORM category PROPERTIES nameDataDefaultUom(c);
 DESIGN category { default { MOVE PROPERTY(nameDataDefaultUom(c)); } }
 
 defaultUom (Category c) = GROUP LAST dataDefaultUom(Category parent) ORDER DESC level(c, parent);
 WHEN LOCAL SETCHANGED(category(Item i)) AND NOT uom(i) DO uom(i) <- defaultUom(category(i));
 
-archived 'Неактивный' = DATA BOOLEAN (Item) CHARWIDTH 10;
-active 'Активный' (Item i) = NOT archived(i) CHARWIDTH 10;
+archived 'Archived' = DATA BOOLEAN (Item);
+active '{Active}' (Item i) = NOT archived(i);
 
-level1 'Группа 1' (Item i) = nameCategory1(category(i));
-level2 'Группа 2' (Item i) = nameCategory2(category(i));
-level3 'Группа 3' (Item i) = nameCategory3(category(i));
-level4 'Группа 4' (Item i) = nameCategory4(category(i));
+level1 'Category 1' (Item i) = nameCategory1(category(i));
+level2 'Category 2' (Item i) = nameCategory2(category(i));
+level3 'Category 3' (Item i) = nameCategory3(category(i));
+level4 'Category 4' (Item i) = nameCategory4(category(i));
 
 readonly = ABSTRACT BOOLEAN (Item);
 
@@ -59,7 +60,7 @@ copy (Item n, Item o) + {
     archived(n) <- archived(o);
 }
 
-FORM item 'Номенклатура'
+FORM item '{Item}'
     OBJECTS i = Item PANEL
     PROPERTIES(i) dataName READONLYIF readonly(i), class READONLY, 
                   name READONLY, id, canonicalNameCategory READONLYIF readonly(i), nameUom READONLYIF readonly(i),
@@ -70,37 +71,37 @@ FORM item 'Номенклатура'
 ;
 
 DESIGN item {
-    caption = CONCAT ' ', class(i), name(i);
+    caption = badged(name(i), class(i));
     OBJECTS {        
         NEW statusPane FIRST {
-            caption = 'Статусы';
-            type = CONTAINERH;
+            horizontal = TRUE;
             alignment = STRETCH;                          
             NEW statusActions {
-                type = CONTAINERH;                    
+                horizontal = TRUE;                    
                 flex = 1; 
                 NEW primaryActions {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                 }
                 NEW secondaryActions {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                 }           
             }
             NEW status {
-                type = CONTAINERH;
+                horizontal = TRUE;
             }
         }    
         NEW header {                          
             NEW row1 {
-                type = CONTAINERH;
+                horizontal = TRUE;
                 alignment = STRETCH;
                 MOVE PROPERTY(dataName(i));
                 MOVE PROPERTY(class(i));
+                MOVE PROPERTY(archived(i));
             }
             MOVE PROPERTY(name(i)) { alignment = STRETCH; }                   
             MOVE PROPERTY(canonicalNameCategory(i));
             NEW pane {
-                type = CONTAINERH;
+                horizontal = TRUE;
                 alignment = STRETCH;
                 NEW column1 {
                     MOVE PROPERTY(id(i));
@@ -110,38 +111,42 @@ DESIGN item {
                     MOVE PROPERTY(nameUom(i));
                 }        
                 NEW column3 {
-                    MOVE PROPERTY(archived(i));
                 }
             }    
         }
         NEW tabs {
-            type = TABBED;
+            tabbed = TRUE;
             fill = 1;
+            height = 400;
             NEW operations {
-                type = TABBED;
-                caption = 'Документы';
+                tabbed = TRUE;
+                caption = 'Documents';
             }
             NEW description {
-                caption = 'Описание';
+                caption = 'Description';
+                fill = 1;
                 MOVE PROPERTY(description(i)) { fill = 1; };
             }
         }
     }  
 }
 
-FORM items 'Номенклатура'
+FORM items '{Items}'
     TREE categories c = Category PARENT parent(c)
     PROPERTIES READONLY name(c)
     ORDERS name(c)
+    FILTERGROUP activeCategory
+        FILTER '{Active}' active(c) DEFAULT
 
     OBJECTS i = Item
     PROPERTIES(i) READONLYIF isReadonly() name, id, nameCategory, nameUom, reference, class READONLY
     PROPERTIES(i) SHOWIF isReadonly() NEWSESSION EDIT, DELETE
     ORDERS name(i) 
-    FILTERS level(category(i), c)
+    FILTERGROUP category
+        FILTER 'By category' level(category(i), c) DEFAULT
     FILTERGROUP active
-        FILTER 'Активный' active(i) 'F8' DEFAULT 
-        FILTER 'Неактивный' archived(i) 'F7'
+        FILTER '{Active}' active(i) 'F8' DEFAULT 
+        FILTER 'Archived' archived(i) 'F7'
         
     LIST Item OBJECT i
 ;
@@ -151,22 +156,31 @@ FORM items 'Номенклатура'
 DESIGN items {
     OBJECTS {
         NEW pane {
-            type = SPLITH;
+            horizontal = TRUE;
             fill = 1;
             NEW options {
-                type = SPLITV;
+                fill = 1;
+                width = 200;
                 NEW categories {
                     fill = 1;
                     MOVE BOX(TREE categories);
                 }
                 NEW tabs {
                     fill = 1;
-                    type = TABBED;
+                    tabbed = TRUE;
                 }
             }                
             NEW details {
-                fill = 2; 
-                MOVE BOX(i) { 
+                fill = 3;
+                width = 200;
+                NEW filters {
+                    caption = 'Filters';
+                    horizontal = TRUE;
+                    MOVE FILTERGROUP(category);
+                    MOVE FILTERGROUP(active);
+                }
+                MOVE BOX(i) {
+                    caption = '';
                     GRID(i) { defaultComponent = TRUE; }
                 }
             }
@@ -178,5 +192,13 @@ DESIGN items {
 NAVIGATOR {
     masterData {
         NEW items;
+    }
+}
+
+DESIGN options {
+    pane {
+        NEW items {
+            caption = 'Items';
+        }
     }
 }

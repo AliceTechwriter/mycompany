@@ -5,14 +5,16 @@ REQUIRE PosDashboardSearch, Utils,
 
 NAMESPACE Retail;
 
-hideTouch 'Спрятать' = DATA BOOLEAN (Category);
-hideTouch 'Спрятать' = DATA BOOLEAN (Item);
+hideTouch 'Hide' = DATA BOOLEAN (Category);
+hideTouch 'Hide' = DATA BOOLEAN (Item);
 
 EXTEND FORM options
     TREE categories c = Category PARENT parent(c)
     PROPERTIES READONLY name(c)
     PROPERTIES hideTouch(c)
     ORDERS name(c)
+    FILTERGROUP activeCategory
+        FILTER '{Active}' active(c) DEFAULT
     
     OBJECTS itm = Item
     PROPERTIES(itm) READONLY name, nameUom, idBarCode, id
@@ -20,16 +22,16 @@ EXTEND FORM options
     ORDERS name(itm)
     FILTERS level(category(itm), c)
     FILTERGROUP active
-        FILTER 'Активный' active(itm) 'F10' DEFAULT  
+        FILTER '{Active}' active(itm) 'F10' DEFAULT  
 ;
 
 DESIGN options {
     tabbedPane {
         NEW touch {
-            caption = 'Выбор';
-            type = SPLITH;
+            caption = 'Touch';
+            horizontal = TRUE;
             MOVE BOX(TREE categories);
-            MOVE BOX(itm);
+            MOVE BOX(itm) { caption = ''; }
         }
     }
 }
@@ -43,8 +45,9 @@ name (TouchNode n) = MULTI name[Category](n), name[Item](n);
 parent (TouchNode n) = MULTI parent[Category](n), category[Item](n);
 image (TouchNode n) = MULTI image[Category](n), image[Item](n);
 hide (TouchNode n) = MULTI hideTouch[Category](n), hideTouch[Item](n);
+active (TouchNode n) = MULTI active[Category](n), active[Item](n);
 
-canonicalName 'Каноническое имя' (TouchNode n) =
+canonicalName 'Canonical name' (TouchNode n) =
    GROUP CONCAT name(TouchNode parent), ' / ' ORDER DESC level(n, parent) CHARWIDTH 50 IN id;
 
 index (TouchNode n) = PARTITION SUM 1 IF NOT hide(n) ORDER name(n), n BY parent(n);
@@ -54,12 +57,12 @@ EXTEND FORM posDashboard
     PROPERTIES(tn) READONLY '' = canonicalName
 ;
 
-back 'Назад' (TouchNode tn) {
+back 'Back' (TouchNode tn) {
     SEEK posDashboard.tn = parent(tn);
 }
 
-drop 'Сбросить' () {
-    SEEK posDashboard.tn = GROUP LAST Category c WHERE c IS Category AND NOT parent(c);
+drop 'Reset' () {
+    SEEK posDashboard.tn = GROUP LAST Category c ORDER c WHERE c IS Category AND NOT parent(c);
 }
 EXTEND FORM posDashboard 
     PROPERTIES drop(), back(tn)
@@ -76,38 +79,41 @@ select (Invoice i, TouchNode tn) {
 EXTEND FORM posDashboard
     OBJECTS tn1 = TouchNode
     FILTERS parent(tn1) = tn, mod(index(tn1),3) = 1, NOT hide(tn1)
-    PROPERTIES select(i, tn1) COLUMNS (tn1) HEADER name(tn1) IMAGE image(tn1) 
+    PROPERTIES NOWAIT select(i, tn1) COLUMNS (tn1) HEADER name(tn1) IMAGE image(tn1)
+    FILTERS active(tn1)
     
     OBJECTS tn2 = TouchNode
     FILTERS parent(tn2) = tn, mod(index(tn2),3) = 2, NOT hide(tn2)
-    PROPERTIES select(i, tn2) COLUMNS (tn2) HEADER name(tn2) IMAGE image(tn2) 
+    PROPERTIES NOWAIT select(i, tn2) COLUMNS (tn2) HEADER name(tn2) IMAGE image(tn2)
+    FILTERS active(tn2)
     
     OBJECTS tn3 = TouchNode
     FILTERS parent(tn3) = tn, mod(index(tn3),3) = 0, NOT hide(tn3)
-    PROPERTIES select(i, tn3) COLUMNS (tn3) HEADER name(tn3) IMAGE image(tn3) 
+    PROPERTIES NOWAIT select(i, tn3) COLUMNS (tn3) HEADER name(tn3) IMAGE image(tn3)
+    FILTERS active(tn3)
 ;
 
 DESIGN posDashboard {
     tabPane {
         NEW touch BEFORE search {
-            caption = 'Выбор';
+            caption = 'Touch';
             showIf = openedSession(p) AND NOT hideInvoice();
             NEW current {
                 alignment = STRETCH;
-                type = CONTAINERH;
-                MOVE PROPERTY(canonicalName(tn)) { fill = 1; }
-                MOVE PROPERTY(drop()) { fontSize = 16; }
-                MOVE PROPERTY(back(tn)) { fontSize = 16; }
+                horizontal = TRUE;
+                MOVE PROPERTY(canonicalName(tn)) { fill = 1; focusable = FALSE; }
+                MOVE PROPERTY(drop()) { fontSize = 16; focusable = FALSE; }
+                MOVE PROPERTY(back(tn)) { fontSize = 16; focusable = FALSE; }
             }
-            NEW touchPane {
+            NEW touchScroll {
                 fill = 1;
-                height = 1;
-                type = SCROLL;
-                NEW touchColumns {
-                    type = CONTAINERH;
-                    MOVE PROPERTY(select(i, tn1)) { fill = 1; panelColumnVertical = TRUE; panelCaptionVertical = TRUE; focusable = FALSE; }
-                    MOVE PROPERTY(select(i, tn2)) { fill = 1; panelColumnVertical = TRUE; panelCaptionVertical = TRUE; focusable = FALSE; }
-                    MOVE PROPERTY(select(i, tn3)) { fill = 1; panelColumnVertical = TRUE; panelCaptionVertical = TRUE; focusable = FALSE; }
+                height = 100;
+                NEW touchPane {
+                    fill = 1;
+                    horizontal = TRUE;
+                    MOVE PROPERTY(select(i, tn1)) { fill = 1; valueClass = 'btn-outline-primary'; panelColumnVertical = TRUE; panelCaptionVertical = TRUE; focusable = FALSE; }
+                    MOVE PROPERTY(select(i, tn2)) { fill = 1; valueClass = 'btn-outline-primary'; panelColumnVertical = TRUE; panelCaptionVertical = TRUE; focusable = FALSE; }
+                    MOVE PROPERTY(select(i, tn3)) { fill = 1; valueClass = 'btn-outline-primary'; panelColumnVertical = TRUE; panelCaptionVertical = TRUE; focusable = FALSE; }
                 }
             }
         }

@@ -1,22 +1,22 @@
 MODULE ReceiptPutAway;
 
-REQUIRE ReceiptDone, ReceiptInv, Input;
+REQUIRE ReceiptDone, ReceiptInv, LocationProduct, Input;
 
 NAMESPACE Inventory;
 
 // type
-putAway 'Размещение' = DATA BOOLEAN (ReceiptType);
+putAway 'Put away' = DATA BOOLEAN (ReceiptType);
 EXTEND FORM receiptType PROPERTIES(o) putAway;
 
 // status
 EXTEND CLASS ReceiptStatus {
-    putAway 'Размещен'
+    putAway 'Put away'
 }
-putAway 'Размещен' = DATA BOOLEAN (Receipt);
+putAway 'Put away' = DATA BOOLEAN (Receipt);
 
 status(Receipt r) += WHEN putAway(r) THEN ReceiptStatus.putAway;
 
-markAsPutAway 'Размещен' (Receipt r) {
+markAsPutAway 'Put away' (Receipt r) {
     APPLY; 
     IF canceled() THEN RETURN;
     
@@ -32,31 +32,39 @@ EXTEND FORM receipt
 
 DESIGN receipt {
     primaryActions {
-        MOVE PROPERTY(markAsPutAway(r)) { fontStyle = 'bold'; }
+        MOVE PROPERTY(markAsPutAway(r)) { valueClass = 'btn-primary'; }
     }
-    status {
-        MOVE PROPERTY(putAway(r));
+    statusGroup {
+        MOVE PROPERTY(putAway(r)) {
+            valueClass = 'btn-check';
+            captionClass = 'btn btn-outline-primary btn-arrow-right';
+        }
     }
 }
 
+EXTEND FORM receipts
+    EXTEND FILTERGROUP status
+        FILTER 'Put away' status(r) = ReceiptStatus.putAway
+;
+
 // put away process
-CLASS ReceiptPutAway 'Размещение';
+CLASS ReceiptPutAway 'Put away';
 
-receiptLine 'Строка приемки' = DATA ReceiptLine (ReceiptPutAway) NONULL DELETE;
+receiptLine 'Receipt line' = DATA ReceiptLine (ReceiptPutAway) NONULL DELETE;
 
-location 'Место хранения' = DATA Location (ReceiptPutAway);
-nameLocation 'Место хранения' (ReceiptPutAway p) = name(location(p));
+location 'Location' = DATA Location (ReceiptPutAway);
+nameLocation 'Location' (ReceiptPutAway p) = name(location(p));
 
 CONSTRAINT location(ReceiptPutAway p) AND NOT level(location(p), location(receipt(receiptLine(p)))) 
            CHECKED BY location[ReceiptPutAway]
-           MESSAGE 'Место хранения должно быть дочерним от места хранения из документа потупления';
+           MESSAGE 'The storage location must be a child of the storage location from the document';
 
-quantity 'Кол-во' = DATA NUMERIC[16,3] (ReceiptPutAway); 
+quantity 'Qty' = DATA NUMERIC[16,3] (ReceiptPutAway); 
 
-put 'Размещено' (ReceiptLine l) = GROUP SUM quantity(ReceiptPutAway p) IF receiptLine(p) = l;
+put 'Put away' (ReceiptLine l) = GROUP SUM quantity(ReceiptPutAway p) IF receiptLine(p) = l;
 ledgerDone(ReceiptLine l) += put(l);
 
-CONSTRAINT put(ReceiptLine l) > done(l) MESSAGE 'Размещенное количество не может быть больше принятого';
+CONSTRAINT put(ReceiptLine l) > done(l) MESSAGE 'The amount placed cannot be greater than the accepted amount';
 
 EXTEND FORM receipt  
     OBJECTS p = ReceiptPutAway
@@ -64,20 +72,20 @@ EXTEND FORM receipt
     FILTERS receiptLine(p) = l
 ;
 
-FORM putAwayLoc 'Места хранения'
+FORM putAwayLoc 'Locations'
     OBJECTS loc = Location
     
     OBJECTS l = Location
     PROPERTIES(l) READONLY name, nameParent, canonicalName
-    FILTERS level(l,loc)
+    FILTERS level(l,loc), active(l)
 ;
 
 DESIGN putAwayLoc {
     PROPERTY(formOk()) { changeKey = 'ENTER'; }
 }
 
-newPutAway 'Разместить (+)' (ReceiptLine ln) {
-    DIALOG putAwayLoc OBJECTS l INPUT, loc = location(receipt(ln)) DO {
+newPutAway 'Put away (+)' (ReceiptLine ln) {
+    DIALOG putAwayLoc OBJECTS l = location(location(receipt(ln)), product(ln)) INPUT, loc = location(receipt(ln)) DO {
         DIALOG dialogQuantity OBJECTS q = done(ln) (-) put(ln) INPUT DO {
             IF q > 0 THEN {
                 NEW p = ReceiptPutAway {
@@ -102,8 +110,9 @@ EXTEND FORM receipt
 DESIGN receipt {
     linesTab {
         NEW receiptPutAway {
-            caption = 'Размещение';
+            caption = 'Put away';
             showIf = toPutAway(r);
+            MOVE FILTERS(p);
             MOVE GRID(p);
             MOVE TOOLBARBOX(p);
         }
@@ -111,7 +120,7 @@ DESIGN receipt {
 }
 
 // invledger
-CLASS ReceiptPutAwayLedger 'Приемка' : InvLedger;
+CLASS ReceiptPutAwayLedger 'Receipt' : InvLedger;
 putAwayLedger = AGGR ReceiptPutAwayLedger WHERE quantity(ReceiptPutAway line);
 
 type(ReceiptPutAwayLedger l) += nameType(receipt(receiptLine(line(l))));
@@ -127,4 +136,4 @@ partner(ReceiptPutAwayLedger l) += vendor(receipt(receiptLine(line(l))));
 
 number(ReceiptPutAwayLedger l) += number(receipt(receiptLine(line(l))));
 
-edit (ReceiptPutAwayLedger l) + { edit(receipt(receiptLine(line(l)))); }
+edit (ReceiptPutAwayLedger l) + { edit(receiptLine(line(l))); }

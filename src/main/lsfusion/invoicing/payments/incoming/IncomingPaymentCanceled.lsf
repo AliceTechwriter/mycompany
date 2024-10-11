@@ -5,15 +5,15 @@ REQUIRE IncomingPaymentDone;
 NAMESPACE Invoicing;
     
 EXTEND CLASS IncomingPaymentStatus {
-    canceled 'Отменен'
+    canceled 'Cancelled'
 }
-canceled 'Отменен' = DATA BOOLEAN (IncomingPayment);
-active 'Активен' (IncomingPayment s) = done(s) AND NOT canceled(s);
+canceled 'Cancelled' = DATA BOOLEAN (IncomingPayment);
+active '{Active}' (IncomingPayment s) = done(s) AND NOT canceled(s);
 
 status(IncomingPayment s) += WHEN canceled(s) THEN IncomingPaymentStatus.canceled;
-colorStatus(IncomingPayment s) += WHEN status(s) = IncomingPaymentStatus.canceled THEN RGB(181,195,247);
+color(IncomingPaymentStatus s) += WHEN s = IncomingPaymentStatus.canceled THEN RGB(181,195,247);
 
-cancel 'Отменить' (IncomingPayment s) {
+cancel 'Cancel' (IncomingPayment s) {
     APPLY; 
     IF canceled() THEN RETURN;
            
@@ -29,14 +29,17 @@ EXTEND FORM incomingPayment
 
 DESIGN incomingPayment {
     secondaryActions {
-        MOVE PROPERTY(cancel(p));
+        MOVE PROPERTY(cancel(p)) { valueClass = 'btn-danger'; }
     }             
-    status {
-        MOVE PROPERTY(canceled(p));                               
+    statusGroup {
+        MOVE PROPERTY(canceled(p)) {
+            valueClass = 'btn-check';
+            captionClass = 'btn btn-outline-primary btn-arrow-right';
+        }                               
     }    
 }
 
 EXTEND FORM incomingPayments    
     EXTEND FILTERGROUP status
-        FILTER 'Отменен' status(p) = IncomingPaymentStatus.canceled    
+        FILTER 'Cancelled' status(p) = IncomingPaymentStatus.canceled    
 ;

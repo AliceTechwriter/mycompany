@@ -6,14 +6,14 @@ NAMESPACE Sales;
 
 EXTEND FORM item   
     OBJECTS dprl = DATETIME PANEL
-    PROPERTIES(dprl) date 'На дату' = VALUE
+    PROPERTIES(dprl) date 'Date' = VALUE
     
     OBJECTS pt = PriceType
     PROPERTIES (pt) READONLY name
     PROPERTIES(pt, i, dprl) priceB
 
     OBJECTS pll = PricelistLine 
-    PROPERTIES(pll) READONLY nameType, startDateTime, endDateTime, nameStatus, number, note                    
+    PROPERTIES(pll) READONLY number, startDateTime, endDateTime, imagedNameStatus, nameType, note                    
     PROPERTIES(pll, pt) price HEADER name(pt) BACKGROUND RGB(187,242,210) IF startDateTime(pll) > dprl
     FILTERS item(pll) = i, 
             editIn(pll, pt)
@@ -23,9 +23,9 @@ EXTEND FORM item
 DESIGN item {
     sales {
         NEW prices {
-            type = SPLITH;
+            horizontal = TRUE;
             fill = 1;
-            caption = 'Цены';
+            caption = 'Prices';
             NEW pricesLeft {
                 fill = 1;
                 MOVE PROPERTY(date);
@@ -33,7 +33,7 @@ DESIGN item {
             }
             MOVE BOX(pll) {
                 fill = 2; 
-                caption = 'Прайс-листы'; 
+                caption = 'Pricelists'; 
             }
         }
     }    

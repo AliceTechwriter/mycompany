@@ -8,30 +8,32 @@ NAMESPACE Inventory;
 
 @defineSelectionForm(locations, Location, l);
 
-FORM dialogLocationsMulti 'Места хранения'
+FORM dialogLocationsMulti 'Locations'
     TREE locations lt = Location PARENT parent(lt)
     PROPERTIES(lt) READONLY name, id
     PROPERTIES(lt) NEWSESSION NEW, EDIT, DELETE
     ORDERS name(lt)
+    FILTERS active(lt)
     
     OBJECTS l = Location BACKGROUND background(l)
     PROPERTIES(l) READONLY
                         name, id, address
     
     FILTERGROUP tree
-        FILTER 'Листья' NOT countChildren(l) DEFAULT
-        FILTER 'Потомки' parent(l) = lt
+        FILTER 'Leaves' NOT countChildren(l) DEFAULT
+        FILTER 'Children' parent(l) = lt
     
-    FILTERS isChild(l, lt)
+    FILTERS isChild(l, lt),
+            active(l)
 ;
 
 DESIGN dialogLocationsMulti {
     OBJECTS {
         NEW pane {
             fill = 1; 
-            type = SPLITH;
+            horizontal = TRUE;
             MOVE BOX(TREE locations);
-            MOVE BOX(l) { fill = 2; }
+            MOVE BOX(l) { fill = 2; caption = ''; }
         }
     }
 }

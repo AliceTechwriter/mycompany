@@ -1,57 +1,60 @@
 MODULE TransferMobile;
 
-REQUIRE Mobile, ItemMobile, CategoryMobile, LocationMobile, BarCodeMobile,
+REQUIRE Mobile, CategoryMobile, BarCodeMobile,
         ShipmentDone, ShipmentFilter;
 
 NAMESPACE Inventory;
 
-quantity 'Кол-во' = DATA LOCAL NESTED NUMERIC[16,3] (Product);
+quantity 'Qty' = DATA LOCAL NESTED NUMERIC[16,3] (Product);
 backgroundQuantity (Location l, Product p) = CASE WHEN quantity(p) > onHand(l, p) THEN RGB(255,212,212)
                                                            WHEN quantity(p) THEN RGB(212,255,212); 
 
-FORM transferMobile 'Мобильное перемещение'
+FORM transferMobile 'Transfer'
     OBJECTS t = ShipmentType PANEL
-    PROPERTIES(t) 'Тип' = name SELECTOR SHOWIF countTransferTypes() > 1
+    PROPERTIES(t) 'Type' = name SELECTOR SHOWIF countTransferTypes() > 1
     FILTERS isTransfer(t)
 
     OBJECTS l = Location PANEL
-    FILTERS accessGranted(l)
+    PROPERTIES(l) name SELECTOR
+    FILTERS accessGranted(l),
+            active(l)
 
     OBJECTS p = Product PAGESIZE 50
-    PROPERTIES BACKGROUND backgroundQuantity(l, p) READONLY 'Наименование' = name(p), 'Остаток' = onHand(l, p)
+    PROPERTIES BACKGROUND backgroundQuantity(l, p) READONLY '{Name}' = name(p), 'On hand' = onHand(l, p)
     PROPERTIES BACKGROUND backgroundQuantity(l, p) quantity (p)
     PROPERTIES(p) READONLY PANEL pName '' = name, '' = id, '' = idBarCode, '' = nameUom
     ORDERS name(p)
     FILTERS onHand(l, p)
 
     FILTERGROUP quantity
-        FILTER 'Отобрано' quantity(p)
+        FILTER 'Selected' quantity(p)
 ;
 
-@defineChangeInputObject(Location, transferMobile, l, dialogLocationsMobile);
-
 DESIGN transferMobile {
-    caption = 'Перемещение';
     OBJECTS {
+        class = '';
+        border = FALSE;
         MOVE PROPERTY(name(t)) { alignment = STRETCH; };
-        MOVE PROPERTY(name(l)) { caption = 'Откуда'; alignment = STRETCH; };
+        MOVE PROPERTY(name(l)) { caption = 'Source'; alignment = STRETCH; };
         NEW filters {
             alignment = STRETCH;
             NEW groupFilter {
-                type = CONTAINERH;
+                horizontal = TRUE;
                 alignment = STRETCH;
                 MOVE FILTERGROUPS(p);
             }
         }
         MOVE GRID(p) {
+            fill = 1;
+            height = 300;
             PROPERTY(name(p)) { charWidth = 25; fontSize = 10; }
             PROPERTY(onHand(l, p)) { charWidth = 4; }
             PROPERTY(quantity(p)) { charWidth = 4; }
         }
-        REMOVE TOOLBARSYSTEM(p);
+        REMOVE BOX(p);
         MOVE PROPERTY(pName) { alignment = STRETCH; }
         NEW panelRow1 {
-            type = CONTAINERH;
+            horizontal = TRUE;
             alignment = STRETCH;
             MOVE PROPERTY(id(p));
             MOVE PROPERTY(idBarCode(p));
@@ -82,12 +85,11 @@ EXTEND FORM transferMobile
 DESIGN transferMobile {
     OBJECTS {
         NEW quantityActions {
-            type = CONTAINERH;
+            horizontal = TRUE;
             alignment = STRETCH;
             NEW searchKeyboard {
                 fill = 1;
-                type = COLUMNS;
-                columns = 5;
+                lines = 5;
             }
             MOVE PROPERTY(increaseQuantity(p)) { fill = 1; focusable = FALSE; }
             MOVE PROPERTY(decreaseQuantity(p)) { fill = 1; focusable = FALSE; }
@@ -99,12 +101,10 @@ DESIGN transferMobile {
 @defineKeyboard(transferMobile, Product, p, searchKeyboard, 16, setQuantity);
 
 // actions
-@defineChangeInput(shipmentToLocation, Location, dialogLocationsMobile, l);
-
-createTransfer 'Переместить' (ShipmentType t, Location from) {
+createTransfer 'Move' (ShipmentType t, Location from) {
     quantity(Product p) <- NULL WHERE NOT onHand(from, p) > 0;
-    ASK 'Переместить с ' + name(from) + ' на ' + nameShipmentToLocation() + ' ' + (GROUP SUM 1 IF quantity(Product p)) + ' позиций ?\n' +
-        GROUP CONCAT name(Product p) + ' - ' + quantity(p), '\n' DO {
+    ASK 'Move from' + ' ' + name(from) + ' -> ' + nameShipmentToLocation() + ' ' + (GROUP SUM 1 IF quantity(Product p)) + ' ' + 'lines' + '?\n' +
+        GROUP CONCAT name(Product p) + ' - ' + quantity(p), '\n' ORDER p DO {
         NEWSESSION {
             NEW s = Shipment {
                 type(s) <- t;
@@ -128,13 +128,13 @@ createTransfer 'Переместить' (ShipmentType t, Location from) {
 } 
 
 EXTEND FORM transferMobile
-    PROPERTIES nameShipmentToLocation() ON CHANGE changeShipmentToLocation(), createTransfer(t, l) READONLYIF NOT (GROUP SUM 1 IF quantity(Product pp)) OR NOT shipmentToLocation()
+    PROPERTIES nameShipmentToLocation(), createTransfer(t, l) READONLYIF NOT (GROUP SUM 1 IF quantity(Product pp)) OR NOT shipmentToLocation()
 ;
 
 DESIGN transferMobile {
     OBJECTS {
         NEW transfer {
-            type = CONTAINERH;
+            horizontal = TRUE;
             alignment = STRETCH;
             MOVE PROPERTY(nameShipmentToLocation()) { fill = 1; };
             MOVE PROPERTY(createTransfer(t, l));        
@@ -144,11 +144,11 @@ DESIGN transferMobile {
 
 NAVIGATOR {
     dashboards {
-        NEW transferMobile;
+        NEW 'Mobile transfer' = transferMobile;
     }
 }
 
 showMobileForms() + { 
-    IF permit(currentUser(), navigatorElementCanonicalName('Sales.ordersMobile')) THEN
+    IF permit(currentUser(), navigatorElementCanonicalName('Inventory.transferMobile')) THEN
         SHOW transferMobile NOWAIT; 
 }

@@ -1,6 +1,6 @@
 MODULE Doc;
 
-REQUIRE Authentication, Time, BarCode;
+REQUIRE Authentication, Time, BarCode, Icon, ItemAttribute;
 
 NAMESPACE Utils;
 
@@ -9,28 +9,31 @@ META defineDocObjectsForm (form, obj, title)
         OBJECTS {
             NEW pane {
                 fill = 1;
-                type = CONTAINERH;
+                horizontal = TRUE;
                 NEW tabbedPane {
-                    type = TABBED;
-                    fill = 1;
+                    tabbed = TRUE;
+                    fill = 1000;
                     MOVE BOX(obj) { caption = title; }
                 }
                 NEW rightPane {
+                    tabbed = TRUE;
+                    width = 230;
+                    fill = 1;
                     NEW filters {
-                        caption = 'Фильтры';
+                        caption = 'Filters';
                         alignment = STRETCH;
                         MOVE FILTERGROUPS(obj) {
-                            type = CONTAINERV;
+                            horizontal = FALSE;
                             alignment = STRETCH;
                         }
                     }
                     NEW actions {
                         alignment = STRETCH;
-                        caption = 'Действия';
-                    }
-                    NEW statuses {
-                        alignment = STRETCH;
-                        caption = 'Статусы';
+                        caption = 'Actions';
+                        NEW statuses {
+                            alignment = STRETCH;
+                            caption = 'Change status';
+                        }
                     }
                 }
             }
@@ -39,58 +42,71 @@ META defineDocObjectsForm (form, obj, title)
 END
 
 META defineDocStatus (doc, title)
-    CLASS ###doc##Status 'Статус '##title {
-        draft 'Черновик'
+    CLASS ###doc##Status title##' status' {
+        draft 'Draft'
     }
     
-    name 'Имя' (###doc##Status s) = staticCaption(s) IF s IS ###doc##Status CHARWIDTH 12;
-    
-    status 'Статус' = ABSTRACT CASE ###doc##Status (###doc) MATERIALIZED INDEXED;
-    nameStatus 'Статус' (###doc d) = name(status(d));
-    colorStatus 'Цвет' = ABSTRACT CASE COLOR (###doc);
+    name '{First_name}' (###doc##Status s) = staticCaption(s) IF s IS ###doc##Status CHARWIDTH 12;
+    imagedName '{First_name}' (###doc##Status s) = imagedCaption(s) IF s IS ###doc##Status CHARWIDTH 12;
+
+    color 'Color' = ABSTRACT CASE COLOR (###doc##Status) MATERIALIZED;
+    color (###doc##Status s) += WHEN s = ###doc##Status.draft THEN RGB(187,242,210);
+
+    status 'Status' = ABSTRACT CASE ###doc##Status (###doc) MATERIALIZED INDEXED;
+    nameStatus 'Status' (###doc d) = name(status(d));
+    imagedNameStatus 'Status' (###doc d) = imagedName(status(d));
+    colorStatus 'Color' (###doc d) = color(status(d));
     
     status(###doc d) += WHEN d IS ###doc THEN ###doc##Status.draft;
-    colorStatus(###doc d) += WHEN status(d) = ###doc##Status.draft THEN RGB(187,242,210);
     
     readonly = ABSTRACT CASE BOOLEAN (###doc);
 END
 
-META defineDocStatusForm (doc, let)
+META defineDocStatusForm (doc, let, beforeProp)
     EXTEND FORM doc##s
-        PROPERTIES(##let) READONLY nameStatus BACKGROUND colorStatus(##let) FIRST
+        PROPERTIES(##let) READONLY imagedNameStatus BACKGROUND colorStatus(##let) BEFORE beforeProp(##let)
         FILTERGROUP status
-            FILTER 'Черновик' status(##let) = ###doc##Status.draft
+            FILTER 'Draft' status(##let) = ###doc##Status.draft
     ;
     
     DESIGN doc##s {
-        FILTERGROUP(status) { alignment = STRETCH; }
+        filters {
+            MOVE FILTERGROUP(status) { alignment = STRETCH; }
+        }
     }
     
     EXTEND FORM doc
-        PROPERTIES(##let) nameStatus BACKGROUND colorStatus(##let)
+        PROPERTIES(##let) READONLY imagedNameStatus BACKGROUND colorStatus(##let)
     ;
     
     DESIGN doc {
         NEW statusPane FIRST {
-            caption = 'Статусы';
-            type = CONTAINERH;
+            horizontal = TRUE;
             alignment = STRETCH;                          
             NEW statusActions {
-                type = CONTAINERH;                    
+                horizontal = TRUE;                    
                 flex = 1; 
                 NEW primaryActions {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                 }
                 NEW secondaryActions {
-                    type = CONTAINERH;
+                    horizontal = TRUE;
                 }           
             }
             NEW status {
-                type = CONTAINERH;
-                MOVE PROPERTY(nameStatus(##let));
+                horizontal = TRUE;
+                MOVE PROPERTY(imagedNameStatus(##let));
+                NEW statusGroup {
+                    custom = '';
+                    class = 'btn-group';
+                }
             }
         }    
     } 
+END
+
+META defineDocStatusForm (doc, let)
+    @defineDocStatusForm(doc, let, nameType);
 END
 
 META defineDocSearchAction (doc, docLine, it, fun, capt)
@@ -129,25 +145,35 @@ META defineDocSearchTab (doc, it)
         TREE categories c = Category PARENT parent(c)
         PROPERTIES READONLY name(c)
         ORDERS name(c)
+        FILTERGROUP activeCategory
+            FILTER '{Active}' active(c) DEFAULT
         
         OBJECTS itm = ###it
-        PROPERTIES(itm) READONLY name, nameUom, idBarCode, id
+        PROPERTIES(itm) READONLY name, nameUom, idBarCode, id, reference
         PROPERTIES(itm) NEWSESSION EDIT
         ORDERS name(itm)
         FILTERS level(category(itm), c)
         FILTERGROUP active
-            FILTER 'Активный' active(itm) 'F10' DEFAULT  
+            FILTER '{Active}' active(itm) 'F10' DEFAULT  
     ;
-    
+
+    @defineItemAttributeForm(doc, itm, itm);
+        
     DESIGN doc {
         details {
             NEW search {
-                caption = 'Подбор';
-                type = SPLITH;
+                caption = 'Search';
+                horizontal = TRUE;
                 fill = 1;
-                MOVE BOX(TREE categories);
+                NEW filters {
+                    fill = 1;
+                    tabbed = TRUE;
+                    MOVE BOX(TREE categories) { caption = 'Categories'; }
+                    MOVE BOX(ia) { caption = 'Attributes'; }
+                }
                 MOVE BOX(itm) { 
                     fill = 2;
+                    caption = '';
                 }
             }
         }
@@ -161,8 +187,11 @@ META defineDocSearch (doc, it, fun, capt, let)
     @defineDocSearchTab(doc, it);
     
     EXTEND FORM doc
-        PROPERTIES(let, itm) fun ON CHANGE change###fun(let, itm)
-    ;        
+        PROPERTIES(let, itm) fun ON CHANGE change###fun(let, itm) READONLYIF readonly(let)
+    ;
+    DESIGN doc {
+        PROPERTY(fun(let, itm)) { background = #EEEEFF; }
+    }
 END
 
 META defineDocSearch (doc, it, fun, capt, let, check)
@@ -173,7 +202,7 @@ META defineDocSearch (doc, it, fun, capt, let, check)
     ;
 END
 
-disableHistory 'Отключить запись истории' = DATA BOOLEAN () PREREAD;
+disableHistory 'Disable history recording' = DATA BOOLEAN () PREREAD;
 EXTEND FORM System.options 
     PROPERTIES() disableHistory
 ;
@@ -183,105 +212,138 @@ DESIGN System.options {
     }
 }
 
-META defineDocHistory(doc, let, class, fun)
-
-    @defineDocHistoryHead(doc, ##let);
-    
-    WHEN SETCHANGED(###doc##Line l IS ###doc##Line) AND doc(l) = ###doc ##let 
-                        AND NOT status(##let) = ###doc##Status.draft AND NOT disableHistory() DO {     
-        NEW h = ###doc##History {
-            doc(h) <- ##let;
-            dateTime(h) <- currentDateTime();
-            user(h) <- currentUser();
-            computer(h) <- currentComputer();
-            type(h) <- 'Добавлена строка';
-            description (h) <- 'Добавлена строка с индексом ' + index(l);
-        }
-    }
-    
-    WHEN DROPPED(###doc##Line l IS ###doc##Line) AND PREV(doc(l)) = ###doc ##let 
-                        AND NOT status(##let) = ###doc##Status.draft AND NOT disableHistory() DO {     
-        NEW h = ###doc##History {
-            doc(h) <- ##let;
-            dateTime(h) <- currentDateTime();
-            user(h) <- currentUser();
-            computer(h) <- currentComputer();
-            type(h) <- 'Удалена строка';
-            description (h) <- 'Удалена строка с индексом ' + PREV(index(l));
-        }
-    }
-    
-    WHEN CHANGED(##fun(###doc##Line l)) AND doc(l) = ###doc ##let 
-                        AND NOT status(##let) = ###doc##Status.draft AND NOT disableHistory() DO {     
-        NEW h = ###doc##History {
-            doc(h) <- ##let;
-            dateTime(h) <- currentDateTime();
-            user(h) <- currentUser();
-            type(h) <- 'Изменено исходное кол-во';
-            description (h) <- 'Изменено исходное кол-во продукта ' + name###class(l) + ' на ' + ##fun(l);
-        }
-    }
-    
-    WHEN CHANGED(class(###doc##Line l)) AND doc(l) = ###doc ##let 
-                        AND NOT status(##let) = ###doc##Status.draft AND NOT disableHistory() DO {     
-        NEW h = ###doc##History {
-            doc(h) <- ##let;
-            dateTime(h) <- currentDateTime();
-            user(h) <- currentUser();
-            computer(h) <- currentComputer();
-            type(h) <- 'Изменен продукт';
-            description (h) <- 'Изменен продукт в строке ' + index(l) + ' на ' + name###class(l);
+META defineHistoryProperty(obj, prop, capt, nameProp)
+    WHEN SETCHANGED(prop(###obj let)) AND NOT disableHistory() DO {
+        NEW l = ###obj##History {
+            obj(l) <- let;
+            dateTime(l) <- currentDateTime();
+            user(l) <- currentUser();
+            computer(l) <- currentComputer();
+            type(l) <- capt;
+            description (l) <- CONCAT ' -> ', PREV(nameProp(let)), nameProp(let);
         }
     }
 END
 
-META defineDocHistoryHead(doc, let)
-    CLASS ###doc##History 'История изменений';
-    
-    doc = DATA ###doc (###doc##History);
+META defineHistoryProperty(obj, prop, capt)
+    @defineHistoryProperty(obj, prop, capt, prop);
+END
 
-    dateTime 'Дата' = DATA DATETIME (###doc##History);
+META defineDocHistoryLineProperty(doc, docLine, prop, capt, descrProp)
+    WHEN CHANGED(prop(docLine l)) AND doc(l) = ###doc d
+        AND NOT status(d) = ###doc##Status.draft AND NOT disableHistory() DO {
+        NEW h = ###doc##History {
+            doc(h) <- d;
+            dateTime(h) <- currentDateTime();
+            user(h) <- currentUser();
+            type(h) <- capt;
+            description (h) <- '' + index(l) + '. ' + (CONCAT ', ', descrProp(l), (CONCAT ' -> ', PREV(prop(l)), prop(l)));
+        }
+    }
+END
+
+META defineDocHistoryHeader(doc, let, dateProp)
+    CLASS ###doc##History 'Change history';
+
+    doc = DATA ###doc (###doc##History) INDEXED;
+    countHistories (###doc d) = GROUP SUM 1 IF doc(###doc##History h) = d;
     
+    dateTime 'Date' = DATA DATETIME (###doc##History);
+
     user = DATA User (###doc##History);
-    nameUser 'Пользователь' (###doc##History l) = name(user(l));
-    
+    nameUser 'User' (###doc##History l) = name(user(l));
+
     computer = DATA Computer (###doc##History);
-    hostnameComputer 'Компьютер' (###doc##History l) = hostname(computer(l)) CHARWIDTH 10;
-    
-    type 'Тип' = DATA ISTRING[100] (###doc##History) CHARWIDTH 15;
-    description 'Описание' = DATA TEXT (###doc##History);
-     
-    WHEN SETCHANGED(status(###doc let)) AND NOT disableHistory() DO {     
-        NEW l = ###doc##History {
-            doc(l) <- let;
-            dateTime(l) <- currentDateTime();
-            user(l) <- currentUser();
-            computer(l) <- currentComputer();
-            type(l) <- 'Изменен статус';
-            description (l) <- 'Изменен статус на ' + staticCaption(status(let));
+    hostnameComputer 'Computer' (###doc##History l) = hostname(computer(l)) CHARWIDTH 10;
+
+    type 'Type' = DATA ISTRING[100] (###doc##History) CHARWIDTH 15;
+    description 'Description' = DATA TEXT (###doc##History);
+
+    @defineHistoryProperty(doc, status, 'Status', nameStatus);
+
+    @defineHistoryProperty(doc, number, 'Number');
+
+    @defineHistoryProperty(doc, dateProp, 'Date');
+END
+
+META defineDocHistoryLine(doc, docLine, class)
+
+    WHEN SETCHANGED(docLine l IS docLine) AND doc(l) = ###doc d
+        AND NOT status(d) = ###doc##Status.draft AND NOT disableHistory() DO {
+        NEW h = ###doc##History {
+            doc(h) <- d;
+            dateTime(h) <- currentDateTime();
+            user(h) <- currentUser();
+            computer(h) <- currentComputer();
+            type(h) <- 'Added line';
+            description (h) <- '' + index(l);
         }
     }
 
-    EXTEND FORM doc
+    WHEN DROPPED(docLine l IS docLine) AND PREV(doc(l)) = ###doc d
+        AND NOT status(d) = ###doc##Status.draft AND NOT disableHistory() DO {
+        NEW h = ###doc##History {
+            doc(h) <- d;
+            dateTime(h) <- currentDateTime();
+            user(h) <- currentUser();
+            computer(h) <- currentComputer();
+            type(h) <- 'Removed line';
+            description (h) <- '' + PREV(index(l));
+        }
+    }
+
+    WHEN CHANGED(class(docLine l)) AND doc(l) = ###doc d
+        AND NOT status(d) = ###doc##Status.draft AND NOT disableHistory() DO {
+        NEW h = ###doc##History {
+            doc(h) <- d;
+            dateTime(h) <- currentDateTime();
+            user(h) <- currentUser();
+            computer(h) <- currentComputer();
+            type(h) <- 'Product changed';
+            description (h) <- '' + index(l) + (CONCAT ' -> ', PREV(name###class(l)), name###class(l));
+        }
+    }
+
+END
+
+META defineDocHistoryLine(doc, class)
+    @defineDocHistoryLine(doc, ###doc##Line, class);
+END
+
+META defineDocHistoryForm(doc, form, let)
+    EXTEND FORM form
         OBJECTS doc##l = ###doc##History
         PROPERTIES(doc##l) READONLY dateTime, nameUser, hostnameComputer, type, description, pdescription = description PANEL
         FILTERS doc(doc##l) = let
     ;
-    
-    DESIGN doc {
+
+    DESIGN form {
         details {
             NEW history {
-                caption = 'История';
+                caption = badged('History', countHistories(let));
                 fill = 1;
-                type = SPLITH;
-                MOVE BOX(doc##l) { 
+                horizontal = TRUE;
+                MOVE BOX(doc##l) {
                     fill = 2;
+                    caption = '';
                     PROPERTY(description(doc##l)) { valueHeight = 18; }
                 }
                 MOVE PROPERTY(pdescription) { panelCaptionVertical = TRUE; fill = 1; }
             }
         }
     }
+END
+
+META defineDocHistory(doc, let, class, dateProp)
+
+    @defineDocHistoryHeader(doc, ##let, dateProp);
+    @defineDocHistoryLine(doc, class);
+    @defineDocHistoryForm(doc, doc, let);
+
+END
+
+META defineDocHistory(doc, let, class)
+    @defineDocHistory(doc, let, class, dateTime);
 END
 
 META defineDocRelation(docTo, docFrom, captTo, captFrom, objTo, objFrom)
@@ -307,19 +369,20 @@ META defineDocRelation(docTo, docFrom, captTo, captFrom, objTo, objFrom)
     ;
 END
 
-META defineDocLineRelation(docTo, docFrom, captTo, captFrom, objTo, objFrom)
-    docTo##Line = DATA ###docTo##Line (###docFrom##Line) INDEXED;
+META defineDocLineRelation(docTo, docFrom, docFromLine, captTo, captFrom, objTo, objFrom, prefix)
+    docTo##Line = DATA ###docTo##Line (###docFromLine) INDEXED;
     
-    in (###docTo i, ###docFrom s) = GROUP SUM 1 IF docTo(docTo##Line(###docFrom##Line l)) = i AND docFrom(l) = s MATERIALIZED; 
+    in (###docTo i, ###docFrom s) = GROUP SUM 1 IF docTo(docTo##Line(###docFromLine l)) = i AND docFrom(l) = s MATERIALIZED; 
     
     count###docTo (###docFrom s) = GROUP SUM 1 IF in(###docTo i, s) MATERIALIZED;
     count###docFrom##s (###docTo i) = GROUP SUM 1 IF in(i, ###docFrom s) MATERIALIZED;
-    numberDate###docTo captTo (###docFrom s) = GROUP CONCAT numberDate(###docTo i) IF in(i, s), ',' CHARWIDTH 30; 
-    numberDate###docTo##Line captTo (###docFrom##Line s) = numberDate(docTo##Line(s)); 
+    numberDate###docTo captTo (###docFrom s) = GROUP CONCAT numberDate(###docTo i) IF in(i, s), ',' ORDER i CHARWIDTH 30;
+    numberDate###docTo##Line captTo (###docFromLine s) = numberDate(docTo##Line(s)); 
 
-    numberDate###docFrom##s captFrom (###docTo s) = GROUP CONCAT numberDate(###docFrom i) IF in(s, i), ',' CHARWIDTH 30; 
-    
-    count###docFrom##Line (###docTo b) = GROUP SUM 1 IF docTo(docTo##Line(###docFrom##Line l)) = b;
+    numberDate###docFrom##s captFrom (###docTo s) = GROUP CONCAT numberDate(###docFrom i) IF in(s, i), ',' ORDER i CHARWIDTH 30;
+
+    count###docFromLine (###docTo##Line b) = GROUP SUM 1 IF docTo##Line(###docFromLine l) = b;
+    count###docFromLine (###docTo b) = GROUP SUM 1 IF docTo(docTo##Line(###docFromLine l)) = b;
     
     // form
     open###docTo (###docFrom s) { 
@@ -327,26 +390,29 @@ META defineDocLineRelation(docTo, docFrom, captTo, captFrom, objTo, objFrom)
             edit(i); 
     }
     EXTEND FORM docFrom
-        PROPERTIES(objFrom) numberDate###docTo ON CHANGE open###docTo(objFrom) SHOWIF count###docTo(objFrom)
+        PROPERTIES(objFrom) prefix###numberDate###docTo = numberDate###docTo ON CHANGE open###docTo(objFrom) SHOWIF count###docTo(objFrom)
     ;
     DESIGN docFrom {
         footer {
-            MOVE PROPERTY(numberDate###docTo(objFrom));
+            MOVE PROPERTY(prefix###numberDate###docTo);
         }
     }
     EXTEND FORM docFrom##s
-        PROPERTIES(objFrom) READONLY numberDate###docTo
+        PROPERTIES(objFrom) READONLY prefix###numberDate###docTo = numberDate###docTo
     ;
     EXTEND FORM docTo##s
         PROPERTIES(objTo) READONLY numberDate###docFrom##s
     ;
 END
 
+META defineDocLineRelation(docTo, docFrom, captTo, captFrom, objTo, objFrom)
+    @defineDocLineRelation(docTo, docFrom, docFrom##Line, captTo, captFrom, objTo, objFrom, );
+END
 META defineDocDiscount (doc)
-    discount 'Скидка, %' = DATA NUMERIC[5,2] (###doc##Line);
+    discount 'Discount, %' = DATA NUMERIC[5,2] (###doc##Line);
     
-    discountPrice 'Цена со скидкой' = DATA NUMERIC[10,2] (###doc##Line);
-    resultPrice 'Цена итоговая' (###doc##Line l) = OVERRIDE discountPrice(l), price(l);
+    discountPrice 'Discount price' = DATA NUMERIC[10,2] (###doc##Line);
+    resultPrice 'Final price' (###doc##Line l) = OVERRIDE discountPrice(l), price(l);
     
     WHEN LOCAL (CHANGED(price(###doc##Line l)) OR CHANGED(discount(l))) AND NOT CHANGED(discountPrice(l)) DO 
         discountPrice(l) <- NUMERIC[10,2] (price(l) * (100.0 - discount(l)) / 100.0);
@@ -369,30 +435,52 @@ META defineDocDiscountForm (doc)
 END
 
 META defineDocLinesCount(doc, d) 
-    count###doc###Line 'Кол-во строк' (###doc d) = GROUP SUM 1 IF doc(###doc###Line l) = d MATERIALIZED;
+    count###doc###Line 'Number of lines' (###doc d) = GROUP SUM 1 IF doc(###doc###Line l) = d MATERIALIZED;
     
     DESIGN doc {
         lines {
-            caption = (CONCAT ' ', 'Строки', '(' + count###doc##Line(d) + ')');
+            caption = badged('Lines', count###doc##Line(d));
         }
     }
     EXTEND FORM doc##s PROPERTIES(d) READONLY count###doc###Line;
 END
 
-META defineDocFilter(doc, cls, property, obj, caption)
+META defineDocFilter(form, doc, cls, property, obj, capt, filterProperty)
     doc###property = DATA LOCAL NESTED cls ();
-    name###doc###property caption = name(doc###property());
+    name###doc###property capt = name(doc###property());
 
-    EXTEND FORM doc##s 
+    EXTEND FORM form
         PROPERTIES() name###doc###property
-        
-        FILTERS property(obj) = doc###property() OR NOT doc###property()
+
+        FILTERS filterProperty(obj) = doc###property() OR NOT doc###property()
     ;
-    
-    DESIGN doc##s {
+
+    DESIGN form {
         filters {
-            MOVE PROPERTY(name###doc###property());
+            MOVE PROPERTY(name###doc###property()) { caption = ''; placeholder = capt; };
         }
     }
+    
+END
 
+META defineDocFilter(doc, cls, property, obj, capt, filterProperty)
+    @defineDocFilter(doc##s, doc, cls, property, obj, capt, filterProperty);
+END
+
+META defineDocFilter(doc, cls, property, obj, capt)
+    @defineDocFilter(doc, cls, property, obj, capt, property);
+END
+
+badgedDoc(STRING caption, STRING number, DATETIME dateTime) = badged(caption, (CONCAT ' ', '№' + number, '(' + dateTime +  ')'));
+
+META defineDocSingleLineForItem(doc, docLine, itemProp)
+    oneLineForItem 'Only one line for one item' = DATA BOOLEAN (###doc##Type);
+    EXTEND FORM doc##Type PROPERTIES(o) oneLineForItem;
+    
+    CONSTRAINT SET([GROUP SUM 1 BY doc(###docLine l), itemProp(l)](###doc d, Item i) > 1) AND oneLineForItem(type(d))
+        MESSAGE 'Only one line for one item';
+END
+
+META defineDocSingleLineForItem(doc, itemProp)
+    @defineDocSingleLineForItem(doc, doc##Line, itemProp);
 END

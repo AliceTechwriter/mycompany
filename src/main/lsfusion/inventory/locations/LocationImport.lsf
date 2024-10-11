@@ -4,24 +4,24 @@ REQUIRE CostLocation, MasterData;
 
 NAMESPACE Inventory;
 
-locationExport 'Экспорт мест хранения' () {
+locationExport 'Export locations' () {
     NEWSESSION {
         IF NOT (GROUP SUM 1 IF Location l AND l IS Location) THEN {
             NEW l = Location {
                 id(l) <- '123';
-                name(l) <- 'Мой склад';
+                name(l) <- 'My warehouse';
             }
         }
     
         LOCAL f = EXCELFILE ();
-        EXPORT XLSX HEADER FROM 'Код' = id(Location l), 'Название' = name(l), 'Код родителя' = idParent(l), 'Код владельца' = idCompany(l), 
-                                'Адрес' = address(l), 'Город' = city(l), 'Область' = state(l), 'Почтовый индекс' = zip(l),
-                                'Расчет себестоимости' = calcCost(l) TO f;   
+        EXPORT XLSX HEADER FROM '{ID}' = id(Location l), '{Name}' = name(l), 'ParentID' = idParent(l), 'CompanyID' = idCompany(l), 
+                                'Address' = address(l), 'City' = city(l), 'State' = state(l), 'Zip' = zip(l),
+                                'Cost' = calcCost(l) TO f;   
         open(f());
     }
 }
 
-locationImport 'Импорт мест хранения' () {
+locationImport 'Import locations' () {
     LOCAL id = STRING[50] (INTEGER);
     LOCAL name = ISTRING[30] (INTEGER);
     LOCAL parent = ISTRING[50] (INTEGER);
@@ -36,7 +36,7 @@ locationImport 'Импорт мест хранения' () {
         NEWSESSION {   
             IMPORT XLS HEADER FROM f TO id = A, name = B, parent = C, owner = D, address = E, city = F, state = G, zip = H, calcCost = I;
             
-            FOR imported(INTEGER i) DO NEW l = Location {
+            FOR imported(INTEGER i) AND (id(i) OR name(i)) DO NEW l = Location {
                 id(l) <- id(i);
                 name(l) <- name(i);
                 company(l) <- partner(owner(i));
@@ -51,7 +51,7 @@ locationImport 'Импорт мест хранения' () {
                 parent(l) <- location(parent(i));
             }
             APPLY;
-            MESSAGE 'Импорт завершен';
+            MESSAGE 'Import completed';
         }
     }    
 }
@@ -63,8 +63,8 @@ EXTEND FORM migrationData
 DESIGN migrationData {
     commons {
         NEW location {
-            type = CONTAINERH;
-            caption = 'Места хранения';
+            horizontal = TRUE;
+            caption = 'Locations';
             MOVE PROPERTY(locationImport());
             MOVE PROPERTY(locationExport());
         }

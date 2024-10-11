@@ -17,8 +17,8 @@ DESIGN posDashboard {
 processBarCode (Invoice i, InvoiceLine l, STRING b) + {
     IF discountCard(b) THEN {
         consumedBarCode() <- TRUE;
-        IF DATE(dateTime(i)) >= blockedDate(discountCard(b)) THEN
-            MESSAGE 'Дисконтная карта заблокирована'; 
+        IF DATE(dateTime(i)) >= blockDate(discountCard(b)) THEN
+            MESSAGE 'Discount card blocked'; 
         ELSE 
             discountCard(i) <- discountCard(b);
             

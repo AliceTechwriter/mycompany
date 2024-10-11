@@ -5,7 +5,9 @@ REQUIRE SessionInvoice, InvoiceShipment, BillReceipt, Location;
 NAMESPACE Retail;
 
 location = DATA Location (Pos);
-nameLocation 'Место хранения' (Pos p) = name(location(p));
+nameLocation 'Location' (Pos p) = name(location(p));
+CONSTRAINT SETCHANGED(location(Pos o)) AND internalUse(location(o)) CHECKED BY location[Pos]
+    MESSAGE 'The selected location is for internal use';
 
 EXTEND FORM pos
     PROPERTIES(p) nameLocation

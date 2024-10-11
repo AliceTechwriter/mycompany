@@ -4,8 +4,8 @@ REQUIRE ItemAttribute, BarCode, Product, ServiceP;
 
 NAMESPACE MasterData;
 
-variantOf 'Основная номенклатура' = DATA Item (Item) INDEXED;
-nameVariantOf 'Основная номенклатура' (Item i) = name(variantOf(i));
+variantOf 'Variant of' = DATA Item (Item) INDEXED;
+nameVariantOf 'Variant of' (Item i) = name(variantOf(i));
 
 primary (Item i) = OVERRIDE variantOf(i), (i AS Item) MATERIALIZED INDEXED;
 
@@ -40,18 +40,17 @@ EXTEND FORM item
     PROPERTIES(i) nameVariantOf
 ;
 
-addVariant 'Разновидность' (Item ii) {
+addVariant 'Variant' (Item i) {
     NEWSESSION {
-        IF ii IS Product THEN NEW p = Product {
-                variantOf(p) <- ii;
-                SHOW item OBJECTS i = p;
-            }
-        ELSE NEW s = Service {
-            variantOf(s) <- ii;
-            SHOW item OBJECTS i = s;
+        IF i IS Product THEN NEW p = Product {
+            variantOf(p) <- i;
+            DIALOG item OBJECTS i = p DOCKED DO seek(i);
+        } ELSE NEW s = Service {
+            variantOf(s) <- i;
+            DIALOG item OBJECTS i = s DOCKED DO seek(s);
         }
     }
-}IMAGE 'add.png';
+} IMAGE 'add.png';
 
 EXTEND FORM item 
     OBJECTS ii = Item
@@ -63,18 +62,21 @@ EXTEND FORM item
 
 EXTEND FORM items
     FILTERGROUP variants
-        FILTER 'Основные' NOT variantOf(i) 'F10'
-        FILTER 'Разновидности' variantOf(i) 'F9'
+        FILTER 'Main' NOT variantOf(i) 'F10'
+        FILTER 'Variants' variantOf(i) 'F9'
 ;
+
+DESIGN items {
+    filters {
+        MOVE FILTERGROUP(variants);
+    }
+}
 
 DESIGN item {
     header {
         MOVE PROPERTY(nameVariantOf(i)) AFTER PROPERTY(name(i));
     }
     tabs {
-        NEW variants {
-            caption = 'Разновидности';
-            MOVE BOX(ii);
-        }
+        MOVE BOX(ii) { caption = 'Variants'; }
     }
 }

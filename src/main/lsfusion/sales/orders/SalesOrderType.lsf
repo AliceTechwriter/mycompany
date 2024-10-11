@@ -1,23 +1,26 @@
 MODULE SalesOrderType;
 
-REQUIRE Numerator, SalesSettings;
+REQUIRE Numerator, Currency, SalesSettings;
 
 NAMESPACE Sales;
 
-CLASS OrderType 'Тип заказа';
-name 'Название' = DATA ISTRING[50] (OrderType) NONULL;
+CLASS OrderType 'Order type';
+name '{Name}' = DATA ISTRING[50] (OrderType) NONULL CHARWIDTH 15;
 
-id 'Код' = DATA STRING[20] (OrderType);
+id '{ID}' = DATA STRING[20] (OrderType);
 orderType = GROUP AGGR OrderType t BY id(t);
 
-numerator 'Нумератор' = DATA Numerator (OrderType);
-nameNumerator 'Нумератор' (OrderType o) = name(numerator(o));
+numerator 'Numerator' = DATA Numerator (OrderType);
+nameNumerator 'Numerator' (OrderType o) = name(numerator(o));
 
-taxIncluded 'Цена включает налоги' = DATA BOOLEAN (OrderType);
+currency = DATA Currency (OrderType);
+nameCurrency 'Currency' (OrderType o) = name(currency(o));
 
-FORM orderType 'Тип заказа'
+taxIncluded 'Price includes taxes' = DATA BOOLEAN (OrderType);
+
+FORM orderType 'Order type'
     OBJECTS o = OrderType PANEL 
-    PROPERTIES(o) name, id, nameNumerator, taxIncluded
+    PROPERTIES(o) name, id, nameNumerator, nameCurrency, taxIncluded
      
     EDIT OrderType OBJECT o;
 ;
@@ -26,12 +29,12 @@ DESIGN orderType {
     OBJECTS {
         NEW tabbedPane {
             fill = 1;
-            type = TABBED;
+            tabbed = TRUE;
         }
     }
 }
 
-FORM orderTypes 'Типы заказов'
+FORM orderTypes 'Types of orders'
     OBJECTS o = OrderType
     PROPERTIES(o) READONLY name, id
     
@@ -51,7 +54,7 @@ DESIGN options {
 }
 
 // default type
-countOrderTypes 'Кол-во типов' () = GROUP SUM 1 IF r IS OrderType; 
+countOrderTypes 'Number of types' () = GROUP SUM 1 IF r IS OrderType; 
 firstOrderType = GROUP LAST OrderType r ORDER DESC r WHERE r IS OrderType;
 
 defaultOrderType = firstOrderType() IF countOrderTypes() = 1;

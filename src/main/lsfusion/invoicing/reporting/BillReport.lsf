@@ -1,27 +1,37 @@
 MODULE BillReport;
 
-REQUIRE CreditNote, BillDebt, ItemAttribute;
+REQUIRE CreditNote, BillCurrency, ItemAttribute;
 
 NAMESPACE Invoicing;
 
 attribute(BillLine l, ItemAttribute a) = value(attribute(item(l), a));
 
-FORM billReport 'Отчет по поступлениям'
+FORM billReport 'Bills report'
     OBJECTS a = ItemAttribute
 
-    OBJECTS report = (i = Bill, l = BillLine) PIVOT
-    PROPERTIES(i) READONLY nameType, dateTime, nameStatus, number, 
-                           nameVendor, nameVendorAccount, nameCompany, nameCompanyAccount, 
+    OBJECTS i = (i = Bill, l = BillLine) PIVOT
+    PROPERTIES(i) READONLY number, dateTime, nameVendor,
+                           imagedNameStatus, nameType, 
+                           nameVendorAccount, nameCompany, nameCompanyAccount, nameCurrency, 
                            namePaymentTerms, dueDateTime, note
-    PROPERTIES(l) READONLY nameItem, idItem 
-    PROPERTIES READONLY 'Группа 1' = level1(item(l)), 'Группа 2' = level2(item(l)), 'Группа 3' = level3(item(l)), 'Группа 4' = level4(item(l)), 
-                        'Группа полная' = canonicalNameCategory(item(l)) 
+    PROPERTIES(l) READONLY nameItem, idItem, referenceItem
+    PROPERTIES READONLY 'Category 1' = level1(item(l)), 'Category 2' = level2(item(l)), 'Category 3' = level3(item(l)), 'Category 4' = level4(item(l)), 
+                        'Canonical group' = canonicalNameCategory(item(l)) 
     PROPERTIES READONLY attribute(l, a) COLUMNS (a) HEADER name(a)
     PROPERTIES(l) READONLY quantity, price, taxes 
     PROPERTIES(l) READONLY MEASURE
-                           untaxedAmount, taxAmount, amount
+                           untaxedAmount, taxAmount, amount, currencyAmount
     FILTERS bill(l) = i
 ;
+
+DESIGN billReport {
+    OBJECTS {
+        NEW filters FIRST { 
+            caption = 'Filters';
+            horizontal = TRUE;
+        }
+    }
+}
 
 @defineDateTimeAggregationForm(billReport, i);
 @defineDateFilterForm(billReport, i);

@@ -5,28 +5,29 @@ REQUIRE InvoiceDone, BillCanceled;
 NAMESPACE Invoicing;
 
 // types
-isCreditNote 'Возврат' = DATA BOOLEAN (BillType);
+isCreditNote 'Return' = DATA BOOLEAN (BillType);
 EXTEND FORM billType PROPERTIES(o) isCreditNote;
 
 isCreditNote (Bill r) = isCreditNote(type(r));
+isVendor(Bill b) += isCreditNote(b) AND isCustomer(vendor(b));
 
 billType = DATA BillType (InvoiceType);
-nameBillType 'Тип возврата' (InvoiceType t) = name(billType(t));
+nameBillType 'Return type' (InvoiceType t) = name(billType(t));
 EXTEND FORM invoiceType PROPERTIES(o) nameBillType;
 
 // lines
-@defineDocLineRelation(invoice, bill, 'Реализации', 'Возвраты', i, b);
+@defineDocLineRelation(invoice, bill, 'Invoice', 'Return', i, b);
 
-numberInvoiceLine 'Реализация' (BillLine l) = number(invoiceLine(l)); 
+numberInvoiceLine 'Invoice' (BillLine l) = number(invoiceLine(l)); 
 
 CONSTRAINT invoiceLine(BillLine l) AND NOT 
                 (customer(invoiceLine(l)) = vendor(l) OR (NOT customer(invoiceLine(l)) AND NOT vendor(l)))
     CHECKED BY invoiceLine
-    MESSAGE 'Контрагент реализации должен совпадать с контрагентом возврата';
+    MESSAGE 'The sales partner must be the same as the return partner';
 
 CONSTRAINT invoiceLine(BillLine l) AND NOT item(invoiceLine(l)) = item(l)
     CHECKED BY invoiceLine
-    MESSAGE 'Номенклатура реализации должны совпадать с номенклатурой возврата';
+    MESSAGE 'The sales item must match the return item';
 
 // events
 WHEN LOCAL SETCHANGED(invoiceLine(BillLine l)) DO {
@@ -35,12 +36,12 @@ WHEN LOCAL SETCHANGED(invoiceLine(BillLine l)) DO {
 }
 
 EXTEND FORM bill
-    PROPERTIES(l) numberInvoiceLine SHOWIF isCreditNote(b)
+    PROPERTIES(l) numberInvoiceLine SHOWIF isCreditNote(b) READONLYIF readonly(b)
 ;
 
 // add
-fill ABSTRACT (BillLine, InvoiceLine);
-fill ABSTRACT (Bill, Invoice);
+fill ABSTRACT LIST (BillLine, InvoiceLine);
+fill ABSTRACT LIST (Bill, Invoice);
  
 create (Bill b, Invoice i) {
     type(b) <- billType(type(i));
@@ -67,7 +68,7 @@ create (Bill b, Invoice i) {
     fill(b, i);
 }
 
-addCreditNote 'Вернуть' (Invoice i) {
+addCreditNote 'Return' (Invoice i) {
     APPLY; 
     IF canceled() THEN RETURN;
     
@@ -86,19 +87,19 @@ EXTEND FORM invoice
 
 DESIGN invoice {
     secondaryActions {
-        MOVE PROPERTY(addCreditNote(i));
+        MOVE PROPERTY(addCreditNote(i)) { valueClass = 'btn-warning'; }
     }               
 }
 
 // returned quantity
-returned 'Возвращено' (InvoiceLine il) = 
+returned 'Returned' (InvoiceLine il) = 
     GROUP SUM quantity(BillLine bl) IF invoiceLine(bl) = il AND active(bill(bl));
 
-FORM invoiceBillShow 'Возвраты'
+FORM invoiceBillShow 'Refunds'
     OBJECTS il = InvoiceLine
     
     OBJECTS bl = BillLine
-    PROPERTIES(bl) READONLY nameStatus, number, dateTime, quantity
+    PROPERTIES(bl) READONLY number, dateTime, imagedNameStatus, quantity
     FILTERS invoiceLine(bl) = il,
             active(bill(bl))
 ;

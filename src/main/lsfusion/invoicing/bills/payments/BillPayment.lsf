@@ -1,34 +1,44 @@
 MODULE BillPayment;
 
-REQUIRE BillDone, BillDebt, OutgoingPaymentDebt;
+REQUIRE BillDone, BillDebt, OutgoingPaymentDebt, OutgoingPaymentCurrency;
 
 NAMESPACE Invoicing;
 
 paymentType = DATA OutgoingPaymentType (BillType);
-namePaymentType 'Тип платежа' (BillType t) = name(paymentType(t));
+namePaymentType 'Payment type' (BillType t) = name(paymentType(t));
 
 EXTEND FORM billType PROPERTIES namePaymentType(o);
 
-registerPayment 'Оплатить' (Bill b) {
+fill ABSTRACT LIST (OutgoingPayment, Bill);
+fill (OutgoingPayment p, Bill b) + {
+    type(p) <- paymentType(type(b));
+
+    partner(p) <- vendor(b);
+    partnerAccount(p) <- vendorAccount(b);
+
+    company(p) <- company(b);
+    companyAccount(p) <- companyAccount(b);
+    
+    currency(p) <- currency(b);
+}
+
+registerPayment 'Register Payment' (Bill b) {
     APPLY; 
     IF canceled() THEN RETURN;
     
     NEWSESSION {
         NEW p = OutgoingPayment {
-            type(p) <- paymentType(type(b));
-        
-            partner(p) <- vendor(b);
-            partnerAccount(p) <- vendorAccount(b);
-            
-            company(p) <- company(b);
-            companyAccount(p) <- companyAccount(b);
-            
             ready(p) <- TRUE;
             
-            amount(p) <- left(b);
+            fill(p, b);
+
+            executeLocalEvents();
+            
+            amount(p) <- sourceLeft(b);
             paid(b, p) <- left(b, p);
+            
             DIALOG outgoingPayment OBJECTS p = p DOCKED NOMANAGESESSION DO {
-                IF amount(p) < paid(b, p) THEN paid(b, p) <- amount(p);
+                IF amount[Debt](p) < paid(b, p) THEN paid(b, p) <- amount[Debt](p);
                 APPLY; 
             }
        } 
@@ -41,6 +51,6 @@ EXTEND FORM bill
 
 DESIGN bill {
     primaryActions {
-        MOVE PROPERTY(registerPayment(b)) { fontStyle = 'bold'; }
+        MOVE PROPERTY(registerPayment(b)) { valueClass = 'btn-primary'; }
     }
 }

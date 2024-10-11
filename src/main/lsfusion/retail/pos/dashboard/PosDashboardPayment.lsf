@@ -4,15 +4,15 @@ REQUIRE PosDashboard, PaymentMethod, IncomingPaymentDebt, PosPaymentMethod, Sess
 
 NAMESPACE Retail;
 
-amount 'Сумма' = DATA LOCAL NUMERIC[14,2] (PaymentMethod);
+amount '{Amount}' = DATA LOCAL NUMERIC[14,2] (PaymentMethod);
 paymentAmount() = GROUP SUM amount(PaymentMethod pm); 
 notCashPaymentAmount() = GROUP SUM amount(PaymentMethod pm) IF NOT isCash(pm); 
 
 change (Invoice i) = paymentAmount() (-) amount(i); 
 
-FORM posPayment 'Оплата'
+FORM posPayment 'Payment'
     OBJECTS i = Invoice PANEL
-    PROPERTIES nameCustomer(i), amount(i), change 'Сдача' = change(i) IF change(i) > 0
+    PROPERTIES nameCustomer(i), amount(i), change '{Change}' = change(i) IF change(i) > 0
     
     OBJECTS pm = PaymentMethod
     PROPERTIES(pm) name READONLY, amount 
@@ -28,7 +28,7 @@ DESIGN posPayment {
             MOVE PROPERTY(nameCustomer(i)) { fontSize = 24; alignment = STRETCH; changeKey = 'F5'; }
         }
         NEW pane {
-            type = CONTAINERH;
+            horizontal = TRUE;
             fill = 1;
             NEW center {
                 fill = 1;
@@ -36,8 +36,8 @@ DESIGN posPayment {
                 MOVE BOX(pm) {
                     GRID(pm) {
                         defaultComponent = TRUE;
-                        PROPERTY(name(pm)) { fontSize = 24; focusable = FALSE; }
-                        PROPERTY(amount(pm)) { fontSize = 24; }
+                        PROPERTY(name(pm)) { fontSize = 24; charWidth = 10; focusable = FALSE; }
+                        PROPERTY(amount(pm)) { fontSize = 24; charWidth = 6; }
                     }
                     REMOVE TOOLBARBOX(pm);
                 }
@@ -50,7 +50,7 @@ DESIGN posPayment {
         REMOVE PROPERTY(formRefresh());
         REMOVE PROPERTY(formOk());
         PROPERTY(formClose()) { fontSize = 24; fill = 1; }
-        MOVE PROPERTY(overFormOk) { fontSize = 24; fill = 1; }
+        MOVE PROPERTY(overFormOk) { changeMouse = ''; fontSize = 24; fill = 1; }
     }
 }
 
@@ -62,7 +62,7 @@ EXTEND FORM posPayment
 
 afterPosPayment ABSTRACT LIST (Invoice);
 
-posPayment 'Оплата' (Session s, Invoice i) {
+posPayment 'Payment' (Session s, Invoice i) {
     amount(PaymentMethod pm) <- NULL;
     DIALOG posPayment OBJECTS i = i, pm INPUT NOMANAGESESSION DO {
         IF NOT paymentAmount() THEN amount(pm) <- amount(i);
@@ -86,8 +86,8 @@ posPayment 'Оплата' (Session s, Invoice i) {
             ready(i) <- NULL;
             DELETE IncomingPayment p WHERE SET(p IS IncomingPayment);
         } ELSE {
-            createInvoice(s);
             afterPosPayment(i);
+            createInvoice(s);
         }
     }
 } CHANGEKEY 'ctrl ENTER';
@@ -98,7 +98,7 @@ EXTEND FORM posDashboard
 
 DESIGN posDashboard {
     actions {
-        MOVE PROPERTY(posPayment(s, i)) { fill = 1; fontStyle = 'bold'; }
+        MOVE PROPERTY(posPayment(s, i)) { fill = 1; valueClass = 'btn-primary'; }
     }
 }
 

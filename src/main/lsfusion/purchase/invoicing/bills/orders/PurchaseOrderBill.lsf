@@ -1,33 +1,33 @@
 MODULE PurchaseOrderBill;
 
 REQUIRE PurchaseOrder, PurchaseOrderConfirmed,
-        BillDone, BillCanceled, Product;
+        BillDone, BillCanceled, BillCurrency, Product;
 
 NAMESPACE Purchase;
 
 // type
 billType = DATA BillType (OrderType);
-nameBillType 'Тип поступления' (OrderType t) = name(billType(t));
+nameBillType 'Bill type' (OrderType t) = name(billType(t));
 EXTEND FORM orderType PROPERTIES nameBillType(o);
 
 // invoicing policy
-CLASS InvoicingPolicy 'Политика оформления поступления' {
-    ordered 'Заказанное количество'
+CLASS InvoicingPolicy 'Bill control' {
+    ordered 'Ordered quantity'
 }
-name 'Имя' (InvoicingPolicy p) = staticCaption(p) IF p IS InvoicingPolicy CHARWIDTH 20;
+name '{First_name}' (InvoicingPolicy p) = staticCaption(p) IF p IS InvoicingPolicy CHARWIDTH 20;
 
 invoicingPolicy = DATA InvoicingPolicy (OrderType);
-nameInvoicingPolicy 'Политика оформления поступления' (OrderType t) = name(invoicingPolicy(t)); 
+nameInvoicingPolicy 'Bill control' (OrderType t) = name(invoicingPolicy(t)); 
 EXTEND FORM orderType PROPERTIES nameInvoicingPolicy(o);
 
 // lines
-@defineDocLineRelation(order, bill, 'Заказы', 'Поступления', o, b);
+@defineDocLineRelation(order, bill, '{Order}', 'Bill', o, b);
 
-billed 'Поступило' (OrderLine ol) = 
+billed 'Billed' (OrderLine ol) = 
     GROUP SUM quantity(BillLine bl) IF orderLine(bl) = ol AND ready(bill(bl)) AND NOT canceled(bill(bl));
-paid 'Оплачено' (OrderLine ol) = 
+paid 'Paid' (OrderLine ol) = 
     GROUP SUM quantity(BillLine bl) IF orderLine(bl) = ol AND done(bill(bl)) AND NOT canceled(bill(bl));
-toBillOrdered 'К оформлению' (OrderLine l) = 
+toBillOrdered 'To bill' (OrderLine l) = 
     max(quantity(l) (-) billed(l), 0) IF 
         (invoicingPolicy(type(l)) = InvoicingPolicy.ordered OR NOT invoicingPolicy(type(l)) OR NOT item(l) IS Product);
  
@@ -38,7 +38,7 @@ toBill (Order o) += toBillOrdered(o) > 0;
 
 fill ABSTRACT LIST (BillLine, OrderLine);
 fill ABSTRACT LIST (Bill, Order);
-createBill 'Создать поступление' (Order o) {
+createBill 'Create Bill' (Order o) {
     APPLY;
     IF canceled() THEN RETURN;
                
@@ -47,8 +47,14 @@ createBill 'Создать поступление' (Order o) {
             ready(nb) <- TRUE;
             type(nb) <- billType(type(o));
             
+            company(nb) <- company(o);
+                        
             vendor(nb) <- vendor(o);
             vendorReference(nb) <- vendorReference(o);
+            note(nb) <- note(o);
+
+            currency(nb) <- currency(o);
+            
             paymentTerms(nb) <- paymentTerms(o);
                          
             FOR order(OrderLine ol) = o AND toBillOrdered(ol) > 0 
@@ -74,11 +80,11 @@ createBill 'Создать поступление' (Order o) {
     }
 }
 
-FORM orderBillShow 'Выставлено счетов'
+FORM orderBillShow 'Bills'
     OBJECTS ol = OrderLine
     
     OBJECTS bl = BillLine
-    PROPERTIES(bl) READONLY nameStatus, number, dateTime, quantity
+    PROPERTIES(bl) READONLY number, dateTime, imagedNameStatus, quantity
     FILTERS orderLine(bl) = ol
 ;
 
@@ -88,19 +94,19 @@ EXTEND FORM order
     PROPERTIES(l) SHOWIF confirmed(o) paid ON CHANGE { DIALOG orderBillShow OBJECTS ol = l; } BACKGROUND NOT paid(l) = quantity(l)
 
     OBJECTS bi = Bill
-    PROPERTIES(bi) READONLY nameType, dateTime, nameStatus BACKGROUND colorStatus(bi), number    
+    PROPERTIES(bi) READONLY number, dateTime, imagedNameStatus BACKGROUND colorStatus(bi), nameType
     PROPERTIES(bi) NEWSESSION EDIT GRID   
     FILTERS in(o, bi)       
 ;
  
 DESIGN order {
     primaryActions {
-        MOVE PROPERTY(createBill(o)) { fontStyle = 'bold'; };
+        MOVE PROPERTY(createBill(o)) { valueClass = 'btn-primary'; };
     }
     relatedDoc  {
         MOVE BOX(bi) {
-            caption = CONCAT ' ', 'Поступления', '(' + countBills(o) + ')';
-            GRID(bi) { headerHeight = 24; }
+            caption = badged('Bills', countBills(o));
+            GRID(bi) { size = (100, -1); }
         }
         REMOVE TOOLBARBOX(bi);
     }
@@ -108,7 +114,7 @@ DESIGN order {
 
 EXTEND FORM orders
     FILTERGROUP toBill
-        FILTER 'Создать поступление' status(o) = OrderStatus.confirmed AND toBill(o)
+        FILTER 'Create Bill' status(o) = OrderStatus.confirmed AND toBill(o)
 ;
 
 DESIGN orders {

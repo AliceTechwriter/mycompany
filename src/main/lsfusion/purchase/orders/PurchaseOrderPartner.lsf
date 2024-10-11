@@ -6,7 +6,7 @@ NAMESPACE Purchase;
 
 EXTEND FORM partner
     OBJECTS pl = Order
-    PROPERTIES(pl) READONLY nameStatus BACKGROUND colorStatus(pl), number, dateTime, nameVendor, nameLocation, scheduledDateTime
+    PROPERTIES(pl) READONLY number, dateTime, imagedNameStatus BACKGROUND colorStatus(pl), scheduledDateTime, nameLocation
     PROPERTIES(pl) READONLY untaxedAmount, taxAmount, amount
     PROPERTIES(pl) NEWSESSION EDIT
     FILTERS vendor(pl) = p
@@ -14,9 +14,6 @@ EXTEND FORM partner
 
 DESIGN partner {
     tabs {
-        NEW pOrders {
-            caption = 'Заказы поставщикам';
-            MOVE BOX(pl);
-        }
+        MOVE BOX(pl) { caption = 'Purchase orders'; }
     }
 }

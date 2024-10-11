@@ -4,15 +4,15 @@ REQUIRE SalesPriceType, BarCode;
 
 NAMESPACE Sales;
 
-CLASS Discount 'Скидка';
+CLASS Discount 'Discount';
 
-name 'Название' = DATA STRING[50] (Discount);
-manual 'Применяется вручную' = DATA BOOLEAN (Discount);
+name '{Name}' = DATA STRING[50] (Discount);
+manual 'Manually' = DATA BOOLEAN (Discount);
 
-startDateTime 'Начало действия' = DATA DATETIME (Discount);
+startDateTime 'Start date' = DATA DATETIME (Discount);
 startDateTime(Discount d) <- currentDateTime() WHEN SET(d IS Discount);
 
-endDateTime 'Окончание действия' = DATA DATETIME (Discount);
+endDateTime 'End date' = DATA DATETIME (Discount);
 
 active (Discount d, DATETIME time) = d IS Discount AND time IS DATETIME AND 
                                                     NOT startDateTime(d) > time AND
@@ -20,32 +20,32 @@ active (Discount d, DATETIME time) = d IS Discount AND time IS DATETIME AND
 active (Discount d) = active(d, currentDateTime()); 
 
 // conditions
-fromAmount 'Сумма покупки от' = DATA NUMERIC[14,2] (Discount);
-fromQuantity 'Кол-во в строке от' = DATA NUMERIC[16,3] (Discount);
+fromAmount 'Purchase amount from' = DATA NUMERIC[14,2] (Discount);
+fromQuantity 'Quantity per line from' = DATA NUMERIC[16,3] (Discount);
 
-fromAccumulated 'Продано клиенту всего от' = DATA NUMERIC[14,2] (Discount);
-fromAccumulatedPreviousMonth 'Продано клиенту за прошедший месяц от' = DATA NUMERIC[14,2] (Discount);
+fromAccumulated 'Sold to a client from' = DATA NUMERIC[14,2] (Discount);
+fromAccumulatedPreviousMonth 'Sold to a client in the past month from' = DATA NUMERIC[14,2] (Discount);
 
 // item
-in 'Вкл' = DATA BOOLEAN (Discount, Category);
+in 'On' = DATA BOOLEAN (Discount, Category);
 set (Discount d, Category c) = GROUP LAST in(d, Category cp) ORDER level(c, cp) MATERIALIZED;
-categories 'Категории' (Discount d) = GROUP CONCAT name(Category c) IF in(d, c), ',' ORDER name(c), c CHARWIDTH 20;
+categories 'Categories' (Discount d) = GROUP CONCAT name(Category c) IF in(d, c), ',' ORDER name(c), c CHARWIDTH 20;
 
-in 'Вкл' = DATA BOOLEAN (Discount, Item);
+in 'On' = DATA BOOLEAN (Discount, Item);
 set (Discount d, Item i) = in(d, i) OR set(d, category(i));
-items 'Номенклатура' (Discount d) = GROUP CONCAT name(Item i) IF in(d, i), ',' ORDER name(i), i CHARWIDTH 30;
+items '{Items}' (Discount d) = GROUP CONCAT name(Item i) IF in(d, i), ',' ORDER name(i), i CHARWIDTH 30;
 
 // pricetype
-in 'Вкл' = DATA BOOLEAN (Discount, PriceType);
+in 'On' = DATA BOOLEAN (Discount, PriceType);
 countPriceType (Discount d) = GROUP SUM 1 IF in(d, PriceType t) MATERIALIZED;
 
 // discount
-discount 'Скидка, %' = DATA NUMERIC[5,2] (Discount);
+discount 'Discount, %' = DATA NUMERIC[5,2] (Discount);
 
 priceType = DATA PriceType (Discount);
-namePriceType 'Вид цены' (Discount d) = name(priceType(d));
+namePriceType 'Price type' (Discount d) = name(priceType(d));
 
-FORM discount 'Скидка'
+FORM discount 'Discount'
     OBJECTS d = Discount PANEL
     PROPERTIES(d) name, manual,
                   startDateTime, endDateTime,
@@ -56,13 +56,15 @@ FORM discount 'Скидка'
     TREE categories c = Category PARENT parent(c) 
     PROPERTIES name(c) READONLY, in(d, c) BACKGROUND (GROUP SUM 1 IF in(d, Category cc) AND level(cc, c))
     ORDERS name(c)
+    FILTERGROUP activeCategory
+        FILTER '{Active}' active(c) DEFAULT
     
     OBJECTS i = Item
     PROPERTIES(i) READONLY name, nameUom, idBarCode, id
     PROPERTIES in(d, i)
     ORDERS name(i)
     FILTERGROUP inItem
-        FILTER 'Включенные' set(d, i)
+        FILTER 'Included' set(d, i)
     FILTERS level(category(i), c)
     
     OBJECTS t = PriceType
@@ -75,58 +77,58 @@ FORM discount 'Скидка'
 DESIGN discount {
     OBJECTS {
         NEW general {
-            caption = 'Основные';
-            type = CONTAINERH;
+            caption = 'Main';
+            horizontal = TRUE;
             alignment = STRETCH;
             MOVE PROPERTY(name(d));
             MOVE PROPERTY(manual(d));
         }
         NEW period {
-            caption = 'Период действия';
-            type = CONTAINERH;
+            caption = 'Validity';
+            horizontal = TRUE;
             alignment = STRETCH;
             MOVE PROPERTY(startDateTime(d));
             MOVE PROPERTY(endDateTime(d));
         }
         NEW conditions {
-            caption = 'Условия';
+            caption = 'Terms';
             alignment = STRETCH;
             NEW generalConditions {
-                type = CONTAINERH;
+                horizontal = TRUE;
                 alignment = STRETCH;
                 MOVE PROPERTY(fromAmount(d));
                 MOVE PROPERTY(fromQuantity(d));
             }
             NEW accumulated {
-                type = CONTAINERH;
+                horizontal = TRUE;
                 alignment = STRETCH;
                 MOVE PROPERTY(fromAccumulated(d));
                 MOVE PROPERTY(fromAccumulatedPreviousMonth(d));
             }
         }
         NEW discounts {
-            caption = 'Скидка';
-            type = CONTAINERH;
+            caption = 'Discount';
+            horizontal = TRUE;
             MOVE PROPERTY(discount(d));
             MOVE PROPERTY(namePriceType(d));
         }
         NEW details {
-            type = TABBED;
+            tabbed = TRUE;
             fill = 1;
             NEW items {
-                caption = 'Номенклатура';
-                type = SPLITH;
+                caption = '{Items}';
+                horizontal = TRUE;
                 MOVE BOX(TREE categories);
                 MOVE BOX(i) { fill = 2; }
             }
             MOVE BOX(t) {
-                caption = 'Виды цен';
+                caption = 'Price types';
             }
         }
     }
 }
 
-FORM discounts 'Скидки'
+FORM discounts 'Discounts'
     OBJECTS d = Discount
     PROPERTIES(d) READONLY name,
                            startDateTime, endDateTime,
@@ -137,7 +139,7 @@ FORM discounts 'Скидки'
     PROPERTIES(d) NEWSESSION NEW, EDIT, DELETE
     
     FILTERGROUP active
-        FILTER 'Активные' active(d) DEFAULT
+        FILTER '{Active}' active(d) DEFAULT
     
     LIST Discount OBJECT d
 ;
@@ -151,7 +153,7 @@ NAVIGATOR {
 // meta
 META defineDocSalesDiscount(doc)
     salesDiscount = DATA Discount (###doc##Line);
-    nameSalesDiscount 'Скидка' (###doc##Line l) = name(salesDiscount(l)) CHARWIDTH 10;
+    nameSalesDiscount 'Discount' (###doc##Line l) = name(salesDiscount(l)) CHARWIDTH 10;
     
     changeSalesDiscount(###doc##Line l) {
         DIALOG selectDiscount OBJECTS l = l, d = salesDiscount(l) CHANGE;

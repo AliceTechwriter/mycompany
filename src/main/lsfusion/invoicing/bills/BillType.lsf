@@ -1,23 +1,26 @@
 MODULE BillType;
 
-REQUIRE Numerator, InvoicingSettings;
+REQUIRE Partner, Numerator, InvoicingSettings;
 
 NAMESPACE Invoicing;
 
-CLASS BillType 'Тип поступления';
-name 'Название' = DATA ISTRING[50] (BillType) NONULL;
+CLASS BillType 'Bill type';
+name '{Name}' = DATA ISTRING[50] (BillType) NONULL CHARWIDTH 15;
 
-id 'Код' = DATA STRING[20] (BillType);
+id '{ID}' = DATA STRING[20] (BillType);
 billType = GROUP AGGR BillType t BY id(t);
 
-numerator 'Нумератор' = DATA Numerator (BillType);
-nameNumerator 'Нумератор' (BillType o) = name(numerator(o));
+numerator 'Numerator' = DATA Numerator (BillType);
+nameNumerator 'Numerator' (BillType o) = name(numerator(o));
 
-taxIncluded 'Цена включает налоги' = DATA BOOLEAN (BillType);
+vendor = DATA Partner (BillType);
+nameVendor 'Vendor' (BillType o) = name(vendor(o));
 
-FORM billType 'Тип поступления'
+taxIncluded 'Price includes taxes' = DATA BOOLEAN (BillType);
+
+FORM billType 'Bill type'
     OBJECTS o = BillType PANEL 
-    PROPERTIES(o) name, id, nameNumerator, taxIncluded
+    PROPERTIES(o) name, id, nameNumerator, nameVendor, taxIncluded
      
     EDIT BillType OBJECT o;
 ;
@@ -26,12 +29,12 @@ DESIGN billType {
     OBJECTS {
         NEW tabbedPane {
             fill = 1;
-            type = TABBED;
+            tabbed = TRUE;
         }
     }
 }
 
-FORM billTypes 'Типы поступления'
+FORM billTypes 'Bill types'
     OBJECTS o = BillType
     PROPERTIES(o) READONLY name, id
     
@@ -51,7 +54,7 @@ DESIGN options {
 }
 
 // default type
-countBillType 'Кол-во типов' () = GROUP SUM 1 IF r IS BillType; 
+countBillType 'Number of types' () = GROUP SUM 1 IF r IS BillType; 
 firstBillType = GROUP LAST BillType r ORDER DESC r WHERE r IS BillType;
 
 defaultBillType = firstBillType() IF countBillType() = 1;

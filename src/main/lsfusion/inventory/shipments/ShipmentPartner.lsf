@@ -6,16 +6,13 @@ NAMESPACE Inventory;
 
 EXTEND FORM partner
     OBJECTS s = Shipment
-    PROPERTIES(s) READONLY nameStatus, number, scheduledDateTime, executionDateTime, nameType, nameLocation, note
+    PROPERTIES(s) READONLY number, scheduledDateTime, imagedNameStatus, nameType, executionDateTime, nameLocation, note
     PROPERTIES(s) NEWSESSION EDIT
     FILTERS customer(s) = p
 ;
 
 DESIGN partner {
     tabs {
-        NEW shipments {
-            caption = 'Отгрузки';
-            MOVE BOX(s);
-        }
+        MOVE BOX(s) { caption = 'Shipments'; }
     }
 }

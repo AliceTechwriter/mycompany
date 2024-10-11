@@ -5,13 +5,13 @@ REQUIRE PurchasePricelist;
 NAMESPACE Purchase;
 
 EXTEND CLASS PricelistStatus {
-    done 'Проведен'
+    done 'Done'
 }
-done 'Проведен' = DATA BOOLEAN (Pricelist);
+done 'Done' = DATA BOOLEAN (Pricelist);
 
 status(Pricelist p) += WHEN done(p) THEN PricelistStatus.done;
 
-markAsDone 'Провести' (Pricelist p) {
+markAsDone 'Mark as Done' (Pricelist p) {
     APPLY;
     IF canceled() THEN RETURN;
     
@@ -27,9 +27,12 @@ EXTEND FORM pricelist
 
 DESIGN pricelist {
     primaryActions {
-        MOVE PROPERTY(markAsDone(p)) { fontStyle = 'bold'; }
+        MOVE PROPERTY(markAsDone(p)) { valueClass = 'btn-primary'; }
     }
-    status {
-        MOVE PROPERTY(done(p));
+    statusGroup {
+        MOVE PROPERTY(done(p)) {
+            valueClass = 'btn-check';
+            captionClass = 'btn btn-outline-primary btn-arrow-right';
+        }
     }
 }

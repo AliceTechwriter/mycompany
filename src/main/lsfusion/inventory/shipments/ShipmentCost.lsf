@@ -4,8 +4,8 @@ REQUIRE ShipmentCanceled, CostLedger, CostLocation;
 
 NAMESPACE Inventory;
 
-// расходная проводка
-CLASS ShipmentOutCostLedger 'Отгрузка' : OutCostLedger;
+// out
+CLASS ShipmentOutCostLedger 'Shipment' : OutCostLedger;
 outCostLedger = AGGR ShipmentOutCostLedger WHERE done(ShipmentLine line) AND active(shipment(line))
                                              AND NOT costLocation(location(shipment(line))) = costLocation(toLocation(shipment(line)));
 
@@ -19,8 +19,8 @@ quantity(ShipmentOutCostLedger l) += done(line(l));
 
 edit(ShipmentOutCostLedger l) + { edit(line(l)); }
 
-// приходная проводка
-CLASS ShipmentInCostLedger 'Перемещение' : InCostLedger;
+// in
+CLASS ShipmentInCostLedger 'Transfer' : InCostLedger;
 inCostLedger = AGGR ShipmentInCostLedger WHERE done(ShipmentLine line) AND active(shipment(line)) 
                             AND toLocation(shipment(line))
                             AND NOT costLocation(location(shipment(line))) = costLocation(toLocation(shipment(line))); 

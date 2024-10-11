@@ -4,59 +4,59 @@ REQUIRE Bom;
 
 NAMESPACE Manufacturing;
 
-bomExport 'Экспорт спецификаций' () {
+bomExport 'Export BOMs' () {
     NEWSESSION {
         IF NOT (GROUP SUM 1 IF Bom b AND b IS Bom) THEN {
             NEW b = Bom {
-                item(b) <- GROUP LAST Item i IF i IS Item;
+                item(b) <- GROUP LAST Item i IF i IS Item ORDER i;
                 quantity(b) <- 1;
             }
         }
         LOCAL f = EXCELFILE ();
         
-        EXPORT XLSX HEADER FROM 'Номер' = number(Bom b), 'Номенклатура' = id(item(b)), 
-            'Кол-во' = quantity(b), 'Единица измерения' = id(uom(b)) TO f;        
+        EXPORT XLSX HEADER FROM 'Number' = number(Bom b), 'ItemID' = id(item(b)), 
+            'Quantity' = quantity(b), 'UoMID' = id(uom(b)) TO f;        
         open(f());
     }
 }
 
-componentLineExport 'Экспорт строк спецификаций' () {
+componentLineExport 'Export BOM Lines' () {
     NEWSESSION {
         IF NOT (GROUP SUM 1 IF ComponentLine l AND l IS ComponentLine) THEN {
             NEW l = ComponentLine {
-                bom(l) <- GROUP LAST Bom b IF b IS Bom;
-                item(l) <- GROUP LAST Item i IF  i IS Item AND NOT i = item(bom(l));
+                bom(l) <- GROUP LAST Bom b IF b IS Bom ORDER b;
+                item(l) <- GROUP LAST Item i IF  i IS Item AND NOT i = item(bom(l)) ORDER i;
                 quantity(l) <- 1;
             }
         }
     
         LOCAL f = EXCELFILE ();
         
-        EXPORT XLSX HEADER FROM 'Номер спецификации' = number(bom(ComponentLine l)), 'Номенклатура' = id(item(l)), 
-            'Кол-во' = quantity(l), 'Единица измерения' = id(uom(l)) TO f;
+        EXPORT XLSX HEADER FROM 'BoMNumber' = number(bom(ComponentLine l)), 'ItemID' = id(item(l)), 
+            'Quantity' = quantity(l), 'UoMID' = id(uom(l)) TO f;
         open(f());
     }
 }
 
-byProductLineExport 'Экспорт производных номенклатур' () {
+byProductLineExport 'Export byproduct lines' () {
     NEWSESSION {
         IF NOT (GROUP SUM 1 IF ByproductLine l AND l IS ByproductLine) THEN {
             NEW l = ByproductLine {
-                bom(l) <- GROUP LAST Bom b IF b IS Bom;
-                product(l) <- GROUP LAST Item i IF i IS Item AND NOT i = item(bom(l));
+                bom(l) <- GROUP LAST Bom b IF b IS Bom ORDER b;
+                product(l) <- GROUP LAST Item i IF i IS Item AND NOT i = item(bom(l)) ORDER i;
                 quantity(l) <- 1;
             }
         }
     
         LOCAL f = EXCELFILE ();
         
-        EXPORT XLSX HEADER FROM 'Номер спецификации' = number(bom(ByproductLine l)), 'Номенклатура' = id(product(l)), 
-                'Кол-во' = quantity(l), 'Единица измерения' = id(uom(l)) TO f;
+        EXPORT XLSX HEADER FROM 'BoMID' = number(bom(ByproductLine l)), 'ProductID' = id(product(l)), 
+                'Quantity' = quantity(l), 'UoMID' = id(uom(l)) TO f;
         open(f());
     }
 }
 
-bomImport 'Импорт спецификаций' () {
+bomImport 'Import BOMs' () {
     LOCAL number = STRING[28] (INTEGER);
     LOCAL idItem = STRING[50] (INTEGER);
     LOCAL quantity = NUMERIC[16,3] (INTEGER);
@@ -67,7 +67,7 @@ bomImport 'Импорт спецификаций' () {
             IMPORT XLS HEADER FROM f TO number, idItem, quantity, idUom;
             
             FOR [GROUP SUM 1 BY idItem(INTEGER i)](num) AND NOT item[STRING](num) DO {
-                MESSAGE 'Отсутствует товар в базе данных с кодом ' + num + '. Импорт отменен';
+                MESSAGE 'There is no item the database with the code' + ' ' + num + '... Import canceled';
                 RETURN;
             }
             
@@ -78,15 +78,15 @@ bomImport 'Импорт спецификаций' () {
             }
             
             APPLY;
-            MESSAGE 'Импорт завершен';
+            MESSAGE 'Import completed';
         }
     }
 }
 
-componentLineImport 'Импорт строк спецификаций' () {
+componentLineImport 'Import BOM Lines' () {
     LOCAL id = STRING[28] (INTEGER);
     LOCAL idItem = STRING[50] (INTEGER );
-    LOCAL quantity = NUMERIC[16,3] (INTEGER);
+    LOCAL quantity = NUMERIC[18,5] (INTEGER);
     LOCAL idUom = STRING[50] (INTEGER);
     
     INPUT f = EXCELFILE DO {
@@ -94,23 +94,23 @@ componentLineImport 'Импорт строк спецификаций' () {
             IMPORT XLS HEADER FROM f TO id, idItem, quantity, idUom;
             
             FOR [GROUP SUM 1 BY id(INTEGER i)](num) AND NOT bom[STRING](num) DO {
-                MESSAGE 'Отсутствует спецификация в базе данных с кодом ' + num + '. Импорт отменен';
+                MESSAGE 'Missing BOM in database with code' + ' ' + num + '... Import canceled';
                 RETURN;
             } 
             
             FOR imported(INTEGER i) DO NEW l = ComponentLine {
-                bom(l) <- GROUP LAST Bom b IF number(b) = id(i);
+                bom(l) <- GROUP LAST Bom b IF number(b) = id(i) ORDER b;
                 item(l) <- item(idItem(i));
                 quantity(l) <- quantity(i);
             }
             
             APPLY;
-            MESSAGE 'Импорт завершен';
+            MESSAGE 'Import completed';
         }
     }
 }
 
-byProductLineImport 'Импорт производных номенклатур' () {
+byProductLineImport 'Import byproduct lines' () {
     LOCAL id = STRING[28] (INTEGER);
     LOCAL idItem = STRING[50] (INTEGER );
     LOCAL quantity = NUMERIC[16,3] (INTEGER);
@@ -121,18 +121,18 @@ byProductLineImport 'Импорт производных номенклатур'
             IMPORT XLS HEADER FROM f TO id, idItem, quantity, idUom;
             
             FOR [GROUP SUM 1 BY id(INTEGER i)](num) AND NOT bom[STRING](num) DO {
-                MESSAGE 'Отсутствует спецификация в базе данных с кодом ' + num + '. Импорт отменен';
+                MESSAGE 'Missing BOM in database with code' + ' ' + num + '... Import canceled';
                 RETURN;
             }
             
             FOR imported(INTEGER i) DO NEW l = ByproductLine {
-                bom(l) <- GROUP LAST Bom b IF number(b) = id(i);
+                bom(l) <- GROUP LAST Bom b IF number(b) = id(i) ORDER b;
                 product(l) <- item(idItem(i));
                 quantity(l) <- quantity(i);
             }
             
             APPLY;
-            MESSAGE 'Импорт завершен';
+            MESSAGE 'Import completed';
         }
     }
 }
@@ -144,19 +144,19 @@ EXTEND FORM migrationData
 DESIGN migrationData {
     commons {
         NEW category {
-            caption = 'Спецификации';
+            caption = 'Bills of Materials';
             NEW bom {
-                type = CONTAINERH;
+                horizontal = TRUE;
                 MOVE PROPERTY(bomImport());
                 MOVE PROPERTY(bomExport());
             }
             NEW componentLines {
-                type = CONTAINERH;
+                horizontal = TRUE;
                 MOVE PROPERTY(componentLineImport());
                 MOVE PROPERTY(componentLineExport());
             }
             NEW byProductLines {
-                type = CONTAINERH;
+                horizontal = TRUE;
                 MOVE PROPERTY(byProductLineImport());
                 MOVE PROPERTY(byProductLineExport());
             }

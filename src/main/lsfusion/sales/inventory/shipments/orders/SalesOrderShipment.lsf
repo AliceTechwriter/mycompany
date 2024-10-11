@@ -7,24 +7,24 @@ NAMESPACE Sales;
 
 // options
 shipmentType = DATA ShipmentType (OrderType);
-nameShipmentType 'Тип отгрузки' (OrderType t) = name(shipmentType(t));
+nameShipmentType 'Shipment type' (OrderType t) = name(shipmentType(t));
 EXTEND FORM orderType PROPERTIES nameShipmentType(o);
  
 // relation
-@defineDocLineRelation(order, shipment, 'Заказы', 'Отгрузки', o, s);
+@defineDocLineRelation(order, shipment, '{Order}', 'Shipment', o, s);
 
-reserved 'Зарезервировано' (OrderLine ol) = 
+reserved 'Reserved' (OrderLine ol) = 
     GROUP SUM reserved(ShipmentLine rl) IF orderLine(rl) = ol AND toReserve(shipment(rl));
 
-done 'Отгружено' (OrderLine ol) = 
+done 'Done' (OrderLine ol) = 
     GROUP SUM done(ShipmentLine rl) IF orderLine(rl) = ol AND active(shipment(rl));
-toShip 'К отгрузке' (OrderLine ol) = 
+toShip 'Mark as Todo' (OrderLine ol) = 
     max(quantity(ol) (-) done(ol), 0) IF item(ol) IS Product MATERIALIZED;
 
-toShip 'К отгрузке' (Order o) = GROUP SUM toShip(OrderLine ol) IF order(ol) = o;
+toShip 'Mark as Todo' (Order o) = GROUP SUM toShip(OrderLine ol) IF order(ol) = o;
 
 CONSTRAINT (quantity(OrderLine ol) (-) done(ol)) < 0 AND confirmed(order(ol)) 
-    MESSAGE 'По товару отгрузка превышает количество в заказе';
+    MESSAGE 'For the product, the shipment exceeds the quantity in the order';
 
 reserveShipment = DATA Shipment (Order);
 
@@ -48,8 +48,12 @@ WHEN ([GROUP SUM 1 IF CHANGED(toShip(OrderLine l)) BY order(l)](Order o) OR SET(
         
     FOR Shipment s = reserveShipment(o) DO {
         customer(s) <- customer(o);
+        department(s) <- department(o);
+
         scheduledDateTime(s) <- scheduledDateTime(o);
 
+        deliveryAddress(s) <- deliveryAddress(o);
+        
         location(s) <- location(o);
     }
     
@@ -72,11 +76,15 @@ WHEN SET(locked(Order o)) DO {
     DELETE Shipment s WHERE s = reserveShipment(o) AND toReserve(s);
 }
 
-FORM orderShipmentShow 'Расход со склада'
+overShipPartially (ShipmentLine to, ShipmentLine from) +{
+    orderLine(to) <- orderLine(from);
+}
+
+FORM orderShipmentShow 'Shipments'
     OBJECTS ol = OrderLine
     
     OBJECTS sl = ShipmentLine
-    PROPERTIES(sl) READONLY nameStatus, number, scheduledDateTime, initialDemand, done   
+    PROPERTIES(sl) READONLY number, scheduledDateTime, imagedNameStatus, initialDemand, done   
     FILTERS orderLine(sl) = ol
 ;
 
@@ -85,7 +93,7 @@ EXTEND FORM order
     PROPERTIES(l) SHOWIF confirmed(o) done ON CHANGE { DIALOG orderShipmentShow OBJECTS ol = l; } BACKGROUND NOT done(l) = quantity(l)
     
     OBJECTS sh = Shipment
-    PROPERTIES(sh) READONLY nameType, scheduledDateTime, executionDateTime, nameStatus BACKGROUND colorStatus(sh), number   
+    PROPERTIES(sh) READONLY number, scheduledDateTime, imagedNameStatus BACKGROUND colorStatus(sh), nameType, executionDateTime   
     PROPERTIES(sh) NEWSESSION EDIT GRID   
     FILTERS in(o, sh)
 ;
@@ -93,8 +101,11 @@ EXTEND FORM order
 DESIGN order {
     relatedDoc  {
         MOVE BOX(sh) {
-            caption = CONCAT ' ', 'Отгрузки', '(' + countShipments(o) + ')';
-            GRID(sh) { headerHeight = 24; }
+            caption = badged('Shipments', countShipments(o));
+            GRID(sh) { 
+                width = 100;
+                autoSize = TRUE; 
+            }
         }
         REMOVE TOOLBARSYSTEM(sh);
     }

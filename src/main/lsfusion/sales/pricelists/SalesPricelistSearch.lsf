@@ -4,10 +4,9 @@ REQUIRE SalesOrder, SalesPricelist, SalesPricelistValue;
 
 NAMESPACE Sales;
 
-// Подбор товаров
 detail= GROUP SUM 1 BY item(PricelistLine pl), pricelist(pl);
 
-in 'Вкл.' (Item item, Pricelist pr) = TRUE IF detail(item, pr);
+in 'Incl.' (Item item, Pricelist pr) = TRUE IF detail(item, pr);
 
 changeIn(Item item, Pricelist pricelist)  { 
     INPUT b = BOOLEAN DO
@@ -22,13 +21,15 @@ changeIn(Item item, Pricelist pricelist)  {
                 }
 }
 
-markup 'Текущая надбавка' (PriceType t, Item i, DATETIME dt) = 
+markup 'Current markup' (PriceType t, Item i, DATETIME dt) = 
     round2(priceB(t, i, dt) / (OVERRIDE 100.0 / (100.0 + salesTax(i)) IF taxIncluded(t), 1.0) * 100.0 / overCost(i, dt)) - 100.0;
 
 EXTEND FORM pricelist
     TREE categories c = Category PARENT parent(c)
     PROPERTIES READONLY name(c)
     ORDERS name(c)
+    FILTERGROUP activeCategory
+        FILTER '{Active}' active(c) DEFAULT
     
     OBJECTS dt = DATETIME 
     FILTERS dt = startDateTime(p)
@@ -42,14 +43,14 @@ EXTEND FORM pricelist
     FILTERS level(category(i), c), canBeSold(i)
     
     FILTERGROUP noPrices
-        FILTER 'Без цены' GROUP SUM 1 IF editIn(p, PriceType tp) AND NOT priceB(tp, i, dt)     
+        FILTER 'No price' GROUP SUM 1 IF editIn(p, PriceType tp) AND NOT priceB(tp, i, dt)     
 ;
 
 DESIGN pricelist {
     details {
         NEW search {
-            caption = 'Подбор';
-            type = SPLITH;
+            caption = 'Search';
+            horizontal = TRUE;
             fill = 1;
             MOVE BOX(TREE categories);
             MOVE BOX(i) { 
@@ -61,7 +62,7 @@ DESIGN pricelist {
     }
 }
 
-selectAll 'Подобрать все' (Pricelist pr, Category c) {
+selectAll 'Select all' (Pricelist pr, Category c) {
     FOR [FILTER pricelist.i](Item i) AND NOT in(i, pr) ORDER name(i) DO NEW l = PricelistLine {
         pricelist(l) <- pr;
         item(l) <- i;

@@ -5,14 +5,14 @@ REQUIRE BillReady, SalesPricelistDone;
 NAMESPACE Sales;
 
 pricelistType = DATA PricelistType (BillType);
-namePricelistType 'Тип прайс-листа' (BillType t) = name(pricelistType(t));
+namePricelistType 'Pricelist type' (BillType t) = name(pricelistType(t));
 
-setPriceToCost 'Установить в себестоимость цену' = DATA BOOLEAN (BillType);
+setPriceToCost 'Set cost price' = DATA BOOLEAN (BillType);
 
 EXTEND FORM billType PROPERTIES namePricelistType(o), setPriceToCost(o) SHOWIF pricelistType(o);
 
 // lines
-@defineDocLineRelation(bill, pricelist, 'Поступления', 'Прайс-листы', b, p);
+@defineDocLineRelation(bill, pricelist, 'Bill', 'Pricelist', b, p);
 
 fill ABSTRACT LIST (PricelistLine, BillLine);
 billPricelistCreated = DATA LOCAL Pricelist ();
@@ -34,7 +34,7 @@ newPricelist (Bill b) {
     }
 }
 
-createPricelist 'Расценить' (Bill b) {
+createPricelist 'Create Pricelist' (Bill b) {
     APPLY;
     IF canceled() THEN RETURN;
     
@@ -49,22 +49,23 @@ EXTEND FORM bill
                   createPricelistSecondary = createPricelist SHOWIF ready(b) AND pricelistType(type(b)) AND countPricelistLine(b)
 
     OBJECTS p = Pricelist
-    PROPERTIES(p) READONLY nameType, startDateTime, endDateTime, nameStatus BACKGROUND colorStatus(p), number
+    PROPERTIES(p) READONLY number, startDateTime, endDateTime, imagedNameStatus BACKGROUND colorStatus(p), nameType
     PROPERTIES(p) NEWSESSION EDIT GRID   
     FILTERS in(b, p)
 ;
 
 DESIGN bill {
     primaryActions {
-        MOVE PROPERTY(createPricelistPrimary) { fontStyle = 'bold'; }
+        MOVE PROPERTY(createPricelistPrimary) { valueClass = 'btn-primary'; }
     }
     secondaryActions {
-        MOVE PROPERTY(createPricelistSecondary);
+        MOVE PROPERTY(createPricelistSecondary) { valueClass = 'btn-secondary'; }
     }
     relatedDoc {
         MOVE BOX(p) {
             showIf = pricelistType(type(b));
-            caption = CONCAT ' ', 'Прайс-листы', '(' + countPricelists(b) + ')';
+            caption = badged('Pricelists', countPricelists(b));
+            GRID(p) { size = (100, -1); }
         }
         REMOVE TOOLBARSYSTEM(p);
     }

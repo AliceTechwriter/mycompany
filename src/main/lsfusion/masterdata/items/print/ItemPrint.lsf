@@ -4,17 +4,19 @@ REQUIRE ItemPrintType, ItemAttribute, BarCode;
 
 NAMESPACE MasterData;
 
-addressCompany (PrintItemType t) = linesAddress(company(t));
+addressLinesCompany (PrintItemType t) = addressLines(company(t));
+addressCsvCompany (PrintItemType t) = addressCsv(company(t));
 phoneCompany (PrintItemType t) = phone(company(t));
 emailCompany (PrintItemType t) = email(company(t));
 websiteCompany (PrintItemType t) = website(company(t));
 
-count 'Кол-во' = DATA LOCAL INTEGER (Item);
+count 'Qty' = DATA LOCAL INTEGER (Item);
+countItem (PrintItemType t) = GROUP SUM 1 IF count(Item i) AND set(t, i);
 
-FORM printItem 'Этикетка'
+FORM printItem '{Label}'
     OBJECTS pt = PrintItemType PANEL
-    PROPERTIES(pt) name, nameCompany, addressCompany, phoneCompany, emailCompany, websiteCompany
-    REPORT OVERRIDE file(pt), setExtension(RAWFILE(template(pt)), 'path')
+    PROPERTIES(pt) name, nameCompany, addressLinesCompany, addressCsvCompany, phoneCompany, emailCompany, websiteCompany
+    REPORT OVERRIDE file(pt), file(RAWFILE(template(pt)), 'path')
 
     OBJECTS i = Item
     PROPERTIES(i) count, id, name, nameUom, idBarCode
@@ -42,10 +44,10 @@ print (PrintItemType pt) {
             PRINT printItem OBJECTS pt = pt;
 }
 
-FORM printItemParams 'Параметры печати этикеток'
+FORM printItemParams 'Print options for labels'
     OBJECTS t = PrintItemType
     PROPERTIES(t) READONLY name
-    FILTERS GROUP SUM 1 IF count(Item i) AND set(t, i)
+    FILTERS countItem(t)
     
     OBJECTS i = Item
     PROPERTIES(i) READONLY name, nameUom, idBarCode, id, nameCategory
@@ -54,14 +56,13 @@ FORM printItemParams 'Параметры печати этикеток'
     FILTERS set(t, i), active(i)
 
     FILTERGROUP print
-        FILTER 'На печать' count(i) DEFAULT 
+        FILTER 'To print' count(i) DEFAULT 
 ;
 
 DESIGN printItemParams {
     OBJECTS {
         NEW pane {
             fill = 1;
-            type = SPLITV;
             MOVE BOX(t);
             MOVE BOX(i) { 
                 fill = 4; 
@@ -76,7 +77,7 @@ printItem () {
     }
 }
 
-print 'Этикетка' (Item i) {
+print '{Label}' (Item i) {
     count(Item ii) <- 1 IF i = ii;
     printItem();
 }

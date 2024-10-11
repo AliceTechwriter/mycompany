@@ -5,11 +5,13 @@ REQUIRE InvoiceDone, InvoiceDebt, IncomingPaymentDebt;
 NAMESPACE Invoicing;
 
 paymentType = DATA IncomingPaymentType (InvoiceType);
-namePaymentType 'Тип платежа' (InvoiceType t) = name(paymentType(t));
+namePaymentType 'Payment type' (InvoiceType t) = name(paymentType(t));
 
 EXTEND FORM invoiceType PROPERTIES namePaymentType(o);
 
-registerPayment 'Оплатить' (Invoice i) {
+fill ABSTRACT LIST (IncomingPayment, Invoice);
+
+registerPayment 'Register Payment' (Invoice i) {
     APPLY; 
     IF canceled() THEN RETURN;
     
@@ -24,11 +26,16 @@ registerPayment 'Оплатить' (Invoice i) {
             companyAccount(p) <- companyAccount(i);
             
             done(p) <- TRUE;
-            
-            amount(p) <- left(i);
+
+            fill (p, i);
+
+            executeLocalEvents();
+                        
+            amount(p) <- sourceLeft(i);
             paid(p, i) <- left(p, i);
+            
             DIALOG incomingPayment OBJECTS p = p DOCKED NOMANAGESESSION DO {
-                IF amount(p) < paid(p, i) THEN paid(p, i) <- amount(p);
+                IF amount[Debt](p) < paid(p, i) THEN paid(p, i) <- amount[Debt](p);
                 APPLY; 
             }
        } 
@@ -41,6 +48,6 @@ EXTEND FORM invoice
 
 DESIGN invoice {
     primaryActions {
-        MOVE PROPERTY(registerPayment(i)) { fontStyle = 'bold'; }
+        MOVE PROPERTY(registerPayment(i)) { valueClass = 'btn-primary'; }
     }
 }

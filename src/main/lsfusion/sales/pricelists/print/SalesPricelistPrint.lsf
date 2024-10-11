@@ -5,7 +5,8 @@ REQUIRE Utils, SalesPricelistPrintType, ItemImage, ItemAttribute;
 NAMESPACE Sales;
 
 // print
-addressCompany (PrintPricelistType t) = linesAddress(company(t));
+addressLinesCompany (PrintPricelistType t) = addressLines(company(t));
+addressCsvCompany (PrintPricelistType t) = addressCsv(company(t));
 phoneCompany (PrintPricelistType t) = phone(company(t));
 emailCompany (PrintPricelistType t) = email(company(t));
 websiteCompany (PrintPricelistType t) = website(company(t));
@@ -18,10 +19,10 @@ price1 (PrintPricelistType pt, Item it) = price(pt, it, 1);
 price2 (PrintPricelistType pt, Item it) = price(pt, it, 2);
 price3 (PrintPricelistType pt, Item it) = price(pt, it, 3);
 
-FORM printPricelist 'Прайс-лист'
+FORM printPricelist 'Pricelist'
     OBJECTS pt = PrintPricelistType PANEL
-    PROPERTIES(pt) name, nameCompany, addressCompany, phoneCompany, emailCompany, websiteCompany
-    REPORT OVERRIDE file(pt), setExtension(RAWFILE(template(pt)), 'path')
+    PROPERTIES(pt) name, nameCompany, addressLinesCompany, addressCsvCompany, phoneCompany, emailCompany, websiteCompany
+    REPORT OVERRIDE file(pt), file(RAWFILE(template(pt)), 'path')
 
     OBJECTS t = PriceType
     FILTERS set(pt, t)

@@ -4,18 +4,18 @@ REQUIRE MasterData, Item;
 
 NAMESPACE MasterData;
 
-CLASS Service 'Услуга' : Item;
+CLASS Service 'Service' : Item;
 
-newService 'Услуга' (Category c) {
-   NEWSESSION {
-       NEW s = Service {
-           category(s) <- c;
-           SHOW item OBJECTS i = s; 
-       }
+newService 'Service' (Category c) {
+    NEWSESSION {
+        NEW s = Service {
+            category(s) <- c;
+            DIALOG item OBJECTS i = s DOCKED DO seek(s);
+        }
    }
 } IMAGE 'add.png';
 
-copy 'Копировать' (Service s) {
+copy 'Copy' (Service s) {
     NEWSESSION {
         NEW ns = Service {
             copy(ns, s);
@@ -29,7 +29,7 @@ EXTEND FORM item
 ;
 DESIGN item {
     secondaryActions {
-        MOVE PROPERTY(copyService);
+        MOVE PROPERTY(copyService) { valueClass = 'btn-secondary'; }
     }
 }
 

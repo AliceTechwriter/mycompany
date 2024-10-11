@@ -5,12 +5,12 @@ REQUIRE Product, BarCode, System,
 
 NAMESPACE MasterData;
 
-productExport 'Экспорт товаров' () {
+productExport 'Export products' () {
     NEWSESSION {
         IF NOT (GROUP SUM 1 IF Product p IS Product) THEN {
             NEW p = Product {
                 id(p) <- '123';
-                dataName(p) <- 'Мой продукт';
+                dataName(p) <- 'My product';
                 category(p) <- GROUP LAST Category c ORDER c WHERE c IS Category;
                 
                 weight(p) <- 0.415;
@@ -18,24 +18,24 @@ productExport 'Экспорт товаров' () {
                 
                 salesPrice(p) <- 6.14;
                 reference(p) <- 'ABC4251';
-                description(p) <- 'Самый лучший продукт';
+                description(p) <- 'The best product';
                 archived(p) <- TRUE;
             }
         }
     
         LOCAL f = EXCELFILE ();
-        EXPORT XLSX HEADER FROM 'Код товара' = id(Product p), 'Наименование' = dataName(p), 'Код категории' = idCategory(p), 
-                                'Код единицы измерения' = idUom(p), 'Вес единицы, кг' = weight(p), 'Объем единицы, м3' = volume(p),
-                                'Цена продажи' = salesPrice(p), 'Код страны происхождения' = id(countryOrigin(p)), 
-                                'Артикул' = reference(p), 'Описание' = description(p), 'Неактивный' = archived(p)  
+        EXPORT XLSX HEADER FROM '{ID}' = id(Product p), '{Name}' = dataName(p), 'CategoryID' = idCategory(p), 
+                                'UoMID' = idUom(p), 'Weight' = weight(p), 'Volume' = volume(p),
+                                'SalesPrice' = salesPrice(p), 'CountryID' = id(countryOrigin(p)), 
+                                'Reference' = reference(p), 'Description' = description(p), 'Archived' = archived(p)  
                                 WHERE p IS Product TO f;   
         open(f());
     }
 }
 
-productImport 'Импорт товаров' () {
+productImport 'Import products' () {
     LOCAL id = STRING[50] (INTEGER);
-    LOCAL name = ISTRING[50] (INTEGER);
+    LOCAL name = ISTRING[200] (INTEGER);
     LOCAL idCategory = ISTRING[50] (INTEGER);
     LOCAL idUom = ISTRING[50] (INTEGER);
     LOCAL weight = NUMERIC[11,3] (INTEGER);
@@ -52,17 +52,17 @@ productImport 'Импорт товаров' () {
                                         volume = F, salesPrice = G, idCountryOrigin = H, reference = I, description = J, archived = K; 
             
             FOR [GROUP SUM 1 BY idCategory(INTEGER i)](STRING num) AND NOT category(num) DO {
-                MESSAGE 'Отсутствует категория в базе данных с кодом ' + num + '. Импорт отменен';
+                MESSAGE 'Missing category in database with code' + ' ' + num + '... Import canceled';
                 RETURN;
             }  
 
             FOR [GROUP SUM 1 BY idUom(INTEGER i)](STRING num) AND NOT uom(num) DO {
-                MESSAGE 'Отсутствует единица измерения в базе данных с кодом ' + num + '. Импорт отменен';
+                MESSAGE 'Missing unit of measure in database with code' + ' ' + num + '... Import canceled';
                 RETURN;
             }  
 
             FOR [GROUP SUM 1 BY idCountryOrigin(INTEGER i)](STRING num) AND NOT country(num) DO {
-                MESSAGE 'Отсутствует страна в базе данных с кодом ' + num + '. Импорт отменен';
+                MESSAGE 'Missing country in database with code' + ' ' + num + '... Import canceled';
                 RETURN;
             }  
             
@@ -83,7 +83,7 @@ productImport 'Импорт товаров' () {
                 archived(p) <- archived(i);
             }
             APPLY;
-            MESSAGE 'Импорт завершен';
+            MESSAGE 'Import completed';
         }
     }    
 }
@@ -95,8 +95,8 @@ EXTEND FORM migrationData
 DESIGN migrationData {
     commons {
         NEW product {
-            type = CONTAINERH;
-            caption = 'Товары';
+            horizontal = TRUE;
+            caption = 'Products';
             MOVE PROPERTY(productImport());
             MOVE PROPERTY(productExport());
         }
